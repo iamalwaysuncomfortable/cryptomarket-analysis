@@ -1,0 +1,3 @@
+This code collects data about from crypto coin data website apis about the existing alt coins and then dumps them to a cvs file.
+
+The intended purpose of these data is for statistical and machine learning analyses to be run upon them in order to determine relevant information about the altcoin space and hopefully allow investors, developers, and your mom, dad, aunt maria and your childhood friend jojo to make better decisions when they interact with it.
