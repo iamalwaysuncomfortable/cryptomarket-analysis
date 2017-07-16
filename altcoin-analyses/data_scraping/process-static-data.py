@@ -1,9 +1,9 @@
 import pandas as pd
-import webdata
+import scrapingutils
 
 #Determination of Derivative or Unique Blockchain Status
-ico_data = webdata.get_ico_data()
-categorical_data, replacement_data = webdata.get_static_data()
+ico_data = scrapingutils.get_ico_data()
+categorical_data, replacement_data = scrapingutils.get_static_data()
 for token in ico_data.keys():
     coin_data = categorical_data[categorical_data.index.str.match(token)]
     if coin_data.empty is False:
@@ -20,5 +20,6 @@ for token in ico_data.keys():
         categorical_data = categorical_data.append(row)
 
 categorical_data.to_csv("test4.csv", encoding="utf-8")
+
 
 

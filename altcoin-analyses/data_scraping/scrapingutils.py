@@ -23,7 +23,7 @@ def fetch_data(uri, parameters = None):
         response = s.get(uri, params = parameters, headers = headers)
     return response
 
-def clean_list(data, give_tuple=False):
+def get_tr_text(data, give_tuple=False):
     """ Create a list or tuple from text in HTML table rows """
     if give_tuple:
         cleaned_data = tuple(line.lstrip(' ') for line in data.split('\n') if line.lstrip() != '')
@@ -36,7 +36,6 @@ def get_coinlist(uri, parameters = None):
     json_data = response.json()
     data = pd.DataFrame(json_data)
     return data
-
 
 ###Get main ranking data
 def get_techinfo(uri):
@@ -71,47 +70,35 @@ def get_social_and_dev_data():
         sleep(randint(1, 4))
         page = fetch_data("https://www.coingecko.com/en?page=" + str(i))
         if page.status_code is not 200:
-            if bool(data):
-                result = pd.DataFrame(data.values(), data.keys())
+            result = "collection of social data failed with a status code of %s" %(page.status_code)
+            print result
             return result
         soup = BeautifulSoup(page.content, 'lxml')
         coin_table = soup.find_all("tr")
-        for i in xrange(2, 62):
-            entries = coin_table[i].find_all("td")
-            symbol = coin_table[i].find("div",class_="text-muted text-center").get_text(strip=True)
+        for j in xrange(2, 62):
+            entries = coin_table[j].find_all("td")
+            symbol = coin_table[j].find("div",class_="text-muted text-center").get_text(strip=True)
             liquidity_btc = entries[4].get_text(strip=True)
             liquidity_btc = normalize('NFKD', liquidity_btc).replace(u"\u0e3f", "")
-            dev_data = clean_list(entries[6].get_text() + entries[7].get_text())
-            reddit_data = clean_list(entries[9].get_text())
-            facebook_likes, twitter_followers = clean_list(entries[10].get_text(), give_tuple=True)
-            bing_results, alexa_ranking = clean_list(entries[12].get_text(), give_tuple=True)
-            data[symbol] = {"liquidity_btc":liquidity_btc, "stars":dev_data[0], "forks":dev_data[1], "watchers":dev_data[2], "issues":dev_data[3],"closed_issues":dev_data[4],"merged_pull_requests":dev_data[5], "contributors":dev_data[6],"commits_last_4_weeks":dev_data[7], "reddit_subscibers":reddit_data[0], "av_users_online":reddit_data[1], "av_posts_per_hour":reddit_data[2],"av_hourly_comments_on_hot_posts":reddit_data[3], "facebook_likes":facebook_likes, "twitter_followers":twitter_followers, "bing_results":bing_results, "alexa_ranking":alexa_ranking}
+            try:
+                stars, forks, watchers, issues, closed_issues, merged_pull_requests, contributors, commits = get_tr_text(entries[6].get_text() + entries[7].get_text(), give_tuple=True)
+            except:
+                stars, forks, watchers, issues, closed_issues, merged_pull_requests, contributors, commits = (0,0,0,0,0,0,0,0)
+            try:
+                subs, av_users, hourly_posts, hourly_comments = get_tr_text(entries[9].get_text(), give_tuple=True)
+            except:
+                subs, av_users, hourly_posts, hourly_comments = (0,0,0,0)
+            try:
+                facebook_likes, twitter_followers = get_tr_text(entries[10].get_text(), give_tuple=True)
+            except:
+                facebook_likes, twitter_followers = (0,0)
+            try:
+                bing_results, alexa_ranking = get_tr_text(entries[12].get_text(), give_tuple=True)
+            except:
+                bing_results, alexa_ranking = (0,0)
+            data[symbol] = {"liquidity_btc":liquidity_btc, "stars":stars, "forks":forks, "watchers":watchers, "issues":issues,"closed_issues":closed_issues,"merged_pull_requests":merged_pull_requests, "contributors":contributors,"commits_last_4_weeks":commits, "reddit_subscibers":subs, "av_users_online":av_users, "av_posts_per_hour":hourly_posts,"av_hourly_comments_on_hot_posts":hourly_comments, "facebook_likes":facebook_likes, "twitter_followers":twitter_followers, "bing_results":bing_results, "alexa_ranking":alexa_ranking}
     result = pd.DataFrame(data.values(), data.keys())
     return result
-
-
-result = "could not collect data due to site error"
-data = {}
-for i in xrange(1, 5):
-    sleep(randint(1, 4))
-    page = fetch_data("https://www.coingecko.com/en?page=" + str(i))
-    if page.status_code is not 200:
-        if bool(data):
-            result = pd.DataFrame(data.values(), data.keys())
-
-    soup = BeautifulSoup(page.content, 'lxml')
-    coin_table = soup.find_all("tr")
-    for i in xrange(2, 62):
-        entries = coin_table[i].find_all("td")
-        symbol = coin_table[i].find("div",class_="text-muted text-center").get_text(strip=True)
-        liquidity_btc = entries[4].get_text(strip=True)
-        liquidity_btc = normalize('NFKD', liquidity_btc).replace(u"\u0e3f", "")
-        dev_data = clean_list(entries[6].get_text() + entries[7].get_text())
-        reddit_data = clean_list(entries[9].get_text())
-        facebook_likes, twitter_followers = clean_list(entries[10].get_text(), give_tuple=True)
-        bing_results, alexa_ranking = clean_list(entries[12].get_text(), give_tuple=True)
-        data[symbol] = {"liquidity_btc":liquidity_btc, "stars":dev_data[0], "forks":dev_data[1], "watchers":dev_data[2], "issues":dev_data[3],"closed_issues":dev_data[4],"merged_pull_requests":dev_data[5], "contributors":dev_data[6],"commits_last_4_weeks":dev_data[7], "reddit_subscibers":reddit_data[0], "av_users_online":reddit_data[1], "av_posts_per_hour":reddit_data[2],"av_hourly_comments_on_hot_posts":reddit_data[3], "facebook_likes":facebook_likes, "twitter_followers":twitter_followers, "bing_results":bing_results, "alexa_ranking":alexa_ranking}
-result = pd.DataFrame(data.values(), data.keys())
 
 def get_ico_data():
     page = fetch_data('https://www.coingecko.com/ico?locale=en')
@@ -136,6 +123,8 @@ def get_ico_data():
 def get_static_data():
     categorical_data = read_csv("https://docs.google.com/spreadsheet/ccc?key=1ZkwYGJ1m-X2xJ4vCdaeq-viGecvRnWniLQ5Jyt1D0YM&output=csv")
     replacement_data = read_csv("https://docs.google.com/spreadsheet/ccc?key=10YZu84w7FnjT7-rQEQ57KT7IK2RB9s3SYnSEvaQkW7Y&output=csv")
+
+
     return categorical_data, replacement_data
 
 
