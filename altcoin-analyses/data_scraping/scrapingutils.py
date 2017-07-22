@@ -14,11 +14,11 @@ def read_csv(url):
         return cr
 
 
-def fetch_data(uri, parameters = None):
+def fetch_data(uri, parameters = None, max_retries=5):
     """ Get data from API or download HTML, try each URI 5 times """
     headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36'}
     with requests.Session() as s:
-        a = requests.adapters.HTTPAdapter(max_retries=5)
+        a = requests.adapters.HTTPAdapter(max_retries)
         s.mount('https://', a)
         response = s.get(uri, params = parameters, headers = headers)
     return response
