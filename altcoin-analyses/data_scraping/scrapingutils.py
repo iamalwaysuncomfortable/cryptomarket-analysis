@@ -13,7 +13,6 @@ def read_csv(url):
         cr = pd.read_csv(io.StringIO(s.decode('utf-8')), index_col="symbol")
         return cr
 
-
 def fetch_data(uri, parameters = None, max_retries=5):
     """ Get data from API or download HTML, try each URI 5 times """
     headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36'}

@@ -1,0 +1,107 @@
+
+{
+  repository(owner: "bitcoin", name: "bitcoin") {
+    ref(qualifiedName: "master") {
+      target {
+        ... on Commit {
+          id
+          history(first: 100) {
+            edges {
+              node {
+                oid
+                author {
+                  name
+                  date
+                }
+              }
+              cursor
+            }
+            pageInfo {
+              hasNextPage
+            }
+          }
+        }
+      }
+    }
+    stargazers(last: 100, orderBy: {field: STARRED_AT, direction: ASC}) {
+      totalCount
+      edges {
+        starredAt
+        node {
+          id
+          login
+        }
+      }
+    }
+    forks(last: 100) {
+      totalCount
+      edges {
+        node {
+          id
+          createdAt
+          owner {
+            login
+          }
+        }
+      }
+    }
+    openissues: issues(last: 100, states: OPEN) {
+      totalCount
+      edges {
+        node {
+          id
+          createdAt
+          author {
+            login
+          }
+        }
+      }
+    }
+    closedissues: issues(last: 100, states: CLOSED) {
+      totalCount
+      edges {
+        node {
+          id
+          createdAt
+          author {
+            login
+          }
+          timeline(first: 12) {
+            nodes {
+              ... on ClosedEvent {
+                createdAt
+                actor {
+                  login
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    openrequests: pullRequests(last: 100, states: OPEN) {
+      totalCount
+      edges {
+        node {
+          id
+          createdAt
+          author {
+            login
+          }
+        }
+      }
+    }
+    mergedrequests: pullRequests(last: 100, states: MERGED) {
+      totalCount
+      edges {
+        node {
+          id
+          mergedAt
+          author {
+            login
+          }
+        }
+      }
+    }
+  }
+}
