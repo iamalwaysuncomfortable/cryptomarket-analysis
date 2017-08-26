@@ -5,6 +5,8 @@ from unicodedata import normalize
 from random import randint
 from time import sleep
 from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
 ###Utility Methods
 def read_csv(url):
@@ -13,9 +15,19 @@ def read_csv(url):
         cr = pd.read_csv(io.StringIO(s.decode('utf-8')), index_col="symbol")
         return cr
 
-def fetch_data(uri, parameters = None, max_retries=5):
+def post_data(uri, data="", headers = "", max_retries=5):
+    retries = Retry(total=max_retries, backoff_factor=1, status_forcelist=[502, 503, 504])
+    with requests.Session() as s:
+        a = HTTPAdapter(max_retries=retries)
+        s.mount('https://', a)
+        if headers == "":
+            response = s.post(uri, data)
+        else:
+            response = s.post(uri, data, headers=headers)
+    return response
+
+def get_data(uri, parameters = None, max_retries=5, headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36'}):
     """ Get data from API or download HTML, try each URI 5 times """
-    headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36'}
     with requests.Session() as s:
         a = requests.adapters.HTTPAdapter(max_retries)
         s.mount('https://', a)
@@ -38,7 +50,7 @@ def get_coinlist(uri, parameters = None):
 
 ###Get main ranking data
 def get_techinfo(uri):
-    response = fetch_data(uri)
+    response = get_data(uri)
     json_data = response.json()
     algo_dict = {}
     for coin, metadata in json_data["Data"].items():
@@ -48,7 +60,7 @@ def get_techinfo(uri):
     return data
 
 def get_derivative_coin_data():
-    page = fetch_data('https://coinmarketcap.com/assets/views/all/')
+    page = get_data('https://coinmarketcap.com/assets/views/all/')
     if page.status_code == 200:
         contents = page.content
         soup = BeautifulSoup(contents, 'html.parser')
@@ -67,7 +79,7 @@ def get_social_and_dev_data():
     data = {}
     for i in xrange(1, 5):
         sleep(randint(1, 4))
-        page = fetch_data("https://www.coingecko.com/en?page=" + str(i))
+        page = get_data("https://www.coingecko.com/en?page=" + str(i))
         if page.status_code is not 200:
             result = "collection of social data failed with a status code of %s" %(page.status_code)
             print result
@@ -100,7 +112,7 @@ def get_social_and_dev_data():
     return result
 
 def get_ico_data():
-    page = fetch_data('https://www.coingecko.com/ico?locale=en')
+    page = get_data('https://www.coingecko.com/ico?locale=en')
     ico_dict = {}
     print(page.status_code)
     if page.status_code == 200:
@@ -122,8 +134,6 @@ def get_ico_data():
 def get_static_data():
     categorical_data = read_csv("https://docs.google.com/spreadsheet/ccc?key=1ZkwYGJ1m-X2xJ4vCdaeq-viGecvRnWniLQ5Jyt1D0YM&output=csv")
     replacement_data = read_csv("https://docs.google.com/spreadsheet/ccc?key=10YZu84w7FnjT7-rQEQ57KT7IK2RB9s3SYnSEvaQkW7Y&output=csv")
-
-
     return categorical_data, replacement_data
 
 

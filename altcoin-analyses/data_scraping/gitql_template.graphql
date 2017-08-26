@@ -1,11 +1,14 @@
-
-{
-  repository(owner: "bitcoin", name: "bitcoin") {
+query {
+  repository(owner:"bitcoin", name:"bitcoin") {
+    name
+    owner{
+      login
+    }
     ref(qualifiedName: "master") {
       target {
         ... on Commit {
           id
-          history(first: 100) {
+          history(first: 2) {
             edges {
               node {
                 oid
@@ -23,7 +26,7 @@
         }
       }
     }
-    stargazers(last: 100, orderBy: {field: STARRED_AT, direction: ASC}) {
+    stargazers(last: 2, orderBy: {field: STARRED_AT, direction: ASC}) {
       totalCount
       edges {
         starredAt
@@ -31,9 +34,10 @@
           id
           login
         }
+        cursor
       }
     }
-    forks(last: 100) {
+    forks(last: 2) {
       totalCount
       edges {
         node {
@@ -43,9 +47,10 @@
             login
           }
         }
+        cursor
       }
     }
-    openissues: issues(last: 100, states: OPEN) {
+    openissues: issues(last: 2, states: OPEN) {
       totalCount
       edges {
         node {
@@ -55,9 +60,10 @@
             login
           }
         }
+        cursor
       }
     }
-    closedissues: issues(last: 100, states: CLOSED) {
+    closedissues: issues(last: 2, states: CLOSED) {
       totalCount
       edges {
         node {
@@ -77,9 +83,10 @@
             }
           }
         }
+        cursor
       }
     }
-    openrequests: pullRequests(last: 100, states: OPEN) {
+    openrequests: pullRequests(last: 2, states: OPEN) {
       totalCount
       edges {
         node {
@@ -89,9 +96,10 @@
             login
           }
         }
+        cursor
       }
     }
-    mergedrequests: pullRequests(last: 100, states: MERGED) {
+    mergedrequests: pullRequests(last: 2, states: MERGED) {
       totalCount
       edges {
         node {
@@ -101,6 +109,7 @@
             login
           }
         }
+        cursor
       }
     }
   }
