@@ -48,7 +48,10 @@ def dict_tocsv(csv_file,csv_columns,dict_data):
             print("I/O error({0}): {1}".format(errno, strerror))
     return
 
-def write_json(filename, data):
+def write_json(filename, data, remove_bad_chars=True):
+    if remove_bad_chars == True:
+        for char in (" ", ".", "/", ":"):
+            filename = filename.replace(char, "-")
     with open(filename + '.json', 'w') as outfile:
         json.dump(data, outfile)
     return
@@ -69,3 +72,21 @@ def get_time(now=False, months=0, weeks=0, days=0, minutes=0 , seconds=0, utc_st
         return nowtime.strftime("%Y-%m-%dT%H:%M:%SZ")
     else:
         return nowtime
+
+def import_json_file(filename):
+    with open(filename) as file:
+        data = json.load(file)
+    return data
+
+def dt_tostring(dt, give_unicode=False):
+    if give_unicode:
+        return unicode(dt.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    else:
+        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+def striplines(file):
+    'strip lines'
+    f = open(file, 'r')
+    lines = f.readlines()
+    result = ' '.join([line.strip() for line in lines])
+    return result
