@@ -19,7 +19,29 @@ def get_repo_lists(single_only=False, multiple_only=False):
     multiple_repo_list = repo_list[repo_list["single_repo"]==False]
     if multiple_only == True:
         return multiple_repo_list
-    return multiple_repo_list, single_repo_list
+    return multiple_repo_list,
+
+def paginate_repos(input_data, org_list, error_log):
+    orgs_to_paginate = [(name, data) for name, data in input_data['data'].iteritems() if len(data['repositories']['edges']) == 100]
+    if not orgs_to_paginate:
+        return input_data
+    query = ""
+    for org in orgs_to_paginate:
+        name, org_data = org
+        cursor = org_data['repositories']['edges'][99]['cursor']
+        account_type = org_list[org_list["owner"] == name].iloc[0]['account_type']
+        query += gq.single_org_query(name,account_type,limit=100, completequery=False,pagination=True, cursor=cursor)
+    query = "query { " + query + " }"
+    status, result = try_gql_query(query)
+    if status == "success":
+        paginated_result = paginate_repos(result, org_list, error_log)
+        for org in orgs_to_paginate:
+            name, org_data = org
+            input_data['data'][name]['repositories']['edges'] = input_data['data'][name]['repositories']['edges'] + paginated_result['data'][name]['repositories']['edges']
+        return input_data
+    else:
+        error_log.append([query, result])
+        return input_data
 
 def get_org_repos(recs_per_call = 20):
     'Get all github repositories under a coin github account'
@@ -55,6 +77,7 @@ def get_org_repos(recs_per_call = 20):
     for query in querylist:
         status, result = try_gql_query(query)
         if status == "success":
+            result = paginate_repos(result, multiple_repo_list, error_log)
             repo_data.update(result['data'])
         else:
             error_log.append([query,result])
@@ -68,7 +91,7 @@ def get_org_repos(recs_per_call = 20):
         pass
     return repo_data
 
-def page_backwards(org_data, owner, repo, since, stars=True, forks=True, commits = False, open_issues=True, closed_issues=True, open_requests=True, merged_requests=True, num=100, depth = 0):
+def page_backwards(org_data, owner, repo, since, stars=True, forks=True, commits = False, open_issues=True, closed_issues=True, open_requests=True, merged_requests=True, num=50, depth = 0):
     'If records exist prior to requested date cannot be accessed by a single query, use cursors to retrieve earlier records'
     print ("onwner %s repo %s depth %s since %s") %(owner, repo, depth, since)
     print(since)
@@ -136,7 +159,7 @@ def page_backwards(org_data, owner, repo, since, stars=True, forks=True, commits
             print('depth was: ' + str(depth))
             raise GithubPaginationError(paged_result, query, org_data, cursors, depth)
 
-def get_org_statistics(since=du.get_time(now=False, months=1, utc_string=True, give_unicode=True)):
+def collect_repo_data(since=du.get_time(now=False, months=1, utc_string=True, give_unicode=True)):
     'Collect statistics on cryptocoin github accounts'
     #Make sure date passed is in unicode, str, or datetime format
     if isinstance(since, str) or isinstance(since, unicode):
@@ -145,7 +168,7 @@ def get_org_statistics(since=du.get_time(now=False, months=1, utc_string=True, g
     elif isinstance(since, datetime):
         pass
     else:
-        raise TypeError("date passed to get_org_statistics was " + type(since).__name__ + ", str, unicode, or datetime required")
+        raise TypeError("date passed to collect_repo_data was " + type(since).__name__ + ", str, unicode, or datetime required")
 
     #Get information on github accounts, declare variables global to the function
     result_set = {}
@@ -176,7 +199,7 @@ def get_org_statistics(since=du.get_time(now=False, months=1, utc_string=True, g
             for repo in repos_to_search:
                 org = repo['node']['owner']['login']
                 repo = repo['node']['name']
-                query, alias = gq.repo_query(org, repo, 100, 100, 100, 100, 100, full_query=True, create_alias=True)
+                query, alias = gq.repo_query(org, repo, 50, 50, 50, 50, 50, full_query=True, create_alias=True)
                 status, result = try_gql_query(query, limitcheck=True)
                 if status == "success":
                     try:
@@ -206,7 +229,7 @@ def get_org_statistics(since=du.get_time(now=False, months=1, utc_string=True, g
             result_set.update(org_stats)
     if limit_exceeded == True:
         remaining_query_dump(single_repo_orgs, resetAt, since, unsearched_set)
-        error_processor(get_org_statistics.__name__, error_log)
+        error_processor(collect_repo_data.__name__, error_log)
         du.write_json("org_statistics_" + du.get_time(now=True, utc_string=True), result_set)
         msg = "Github limit exceed, statistics collection exited reset at: " + resetAt
         print msg
@@ -231,14 +254,14 @@ def get_org_statistics(since=du.get_time(now=False, months=1, utc_string=True, g
                     error_log.append({org:content})
                 except GithubAPILimitExceededError as e:
                     remaining_query_dump(single_repo_orgs, e.resetAt, since, idx=idx, single_repos_only=True)
-                    error_processor(get_org_statistics.__name__, error_log)
+                    error_processor(collect_repo_data.__name__, error_log)
                     du.write_json("org_statistics_" + du.get_time(now=True, utc_string=True), result_set)
                     msg = "Github limit exceed, statistics collection exited at {" + org + ":" + repo + " }, reset at: " + e.resetAt
                     print msg
                     return msg
         elif status == "limit_exceeded":
             remaining_query_dump(single_repo_orgs, content[3], since, idx=idx, single_repos_only=True)
-            error_processor(get_org_statistics.__name__, error_log)
+            error_processor(collect_repo_data.__name__, error_log)
             du.write_json("org_statistics_" + du.get_time(now=True, utc_string=True), result_set)
             msg = "Github limit exceed, statistics collection exited at {" + org + ":" + repo + " }, reset at: " + content[3]
             print msg
@@ -249,7 +272,7 @@ def get_org_statistics(since=du.get_time(now=False, months=1, utc_string=True, g
         idx += 1
     try:
         print "error processor attempted"
-        error_processor(get_org_statistics.__name__ ,error_log)
+        error_processor(collect_repo_data.__name__, error_log)
     except:
         pass
     try:
@@ -257,77 +280,3 @@ def get_org_statistics(since=du.get_time(now=False, months=1, utc_string=True, g
     except:
         pass
     return result_set, error_log
-
-#Data Processing Methods
-def collect_aggregate_totals(org, since, org_name):
-    org_totals = {}
-    org_totals["stargazers"], org_totals["forks"], org_totals["open_issues"], org_totals["closed_issues"] = 0,0,0,0
-    org_totals["total_issues"], org_totals["open_pull_requests"], org_totals["merged_pull_requests"] = 0,0,0
-    org_totals["since"], org_totals["name"] = since, org_name
-    for name, repo in org.iteritems():
-        org_totals["stargazers"] += repo['stargazers']['totalCount']
-        org_totals["forks"] += repo['forks']['totalCount']
-        org_totals["open_issues"] += repo['openissues']['totalCount']
-        org_totals["closed_issues"] += repo['closedissues']['totalCount']
-        org_totals["total_issues"] += repo["closedissues"]['totalCount'] + repo["openissues"]['totalCount']
-        org_totals["open_pull_requests"] += repo['openrequests']['totalCount']
-        org_totals["merged_pull_requests"] += repo['mergedrequests']['totalCount']
-    result = (org_totals["name"], org_totals["since"], org_totals["stargazers"], org_totals["forks"],
-              org_totals["open_issues"], org_totals["closed_issues"], org_totals["total_issues"],
-              org_totals["open_pull_requests"], org_totals["merged_pull_requests"])
-    return result
-
-def stage_data(org_data):
-    stars, forks, openissues, closedissues, openrequests, mergedrequests, org_statistics  = [],[],[],[],[],[],[]
-    for org_name, org in org_data.iteritems():
-        if org_name == "records_end_date" or org_name == "records_start_date":
-            continue
-        print org_name
-        org_statistics.append(collect_aggregate_totals(org, org_name, org_data["records_end_date"]))
-        for repo_name, repo in org.iteritems():
-            print repo_name
-            if repo["stargazers"]["edges"]:
-                entry = [(edge["node"]["id"],repo["owner"]["login"],repo["name"], edge["node"]["login"],
-                          edge["starredAt"],edge["cursor"]) for edge in repo["stargazers"]["edges"]]
-                stars += entry
-            if repo["forks"]["edges"]:
-                entry = [(edge["node"]["id"], repo["owner"]["login"],repo["name"], edge["node"]["owner"]["login"],
-                          edge["node"]["createdAt"], edge["cursor"]) for edge in repo["forks"]["edges"]]
-                forks += entry
-            if repo["openissues"]["edges"]:
-                for edge in repo["closedissues"]["edges"]:
-                    if edge["node"]["author"] is None:
-                        edge["node"]["author"] = {"login":""}
-                    entry = (edge["node"]["id"], repo["owner"]["login"], repo["name"], edge["node"]["author"]["login"],
-                             edge["node"]["createdAt"], edge["node"]["state"], "", "", edge["cursor"])
-                    openissues.append(entry)
-            if repo["closedissues"]["edges"]:
-                for edge in repo["closedissues"]["edges"]:
-                    if edge["node"]["author"] is None:
-                        edge["node"]["author"] = {"login":""}
-                    closedevents = [(event["createdAt"], event["actor"]["login"]) if bool(event["actor"]) else
-                                    (event["createdAt"], "") for event in edge["node"]["timeline"]["nodes"] if bool(event)]
-                    print closedevents
-                    if closedevents:
-                        closedevent = max(closedevents)
-                        entry = (edge["node"]["id"], repo["owner"]["login"], repo["name"], edge["node"]["author"]["login"],
-                                 edge["node"]["createdAt"], edge["node"]["state"], closedevent[1], closedevent[0], edge["cursor"])
-                    else:
-                        entry = (edge["node"]["id"], repo["owner"]["login"], repo["name"], edge["node"]["author"]["login"],
-                                 edge["node"]["createdAt"], edge["node"]["state"], "", "", edge["cursor"])
-                    closedissues.append(entry)
-            if repo["openrequests"]["edges"]:
-                for edge in repo["openrequests"]["edges"]:
-                    if edge["node"]["author"] is None:
-                        edge["node"]["author"] = {"login":""}
-                    entry = (edge["node"]["id"], repo["owner"]["login"], repo["name"], edge["node"]["author"]["login"],
-                              edge["node"]["createdAt"], edge["node"]["state"],"", edge["cursor"])
-                    openrequests.append(entry)
-            if repo["mergedrequests"]["edges"]:
-                for edge in repo["mergedrequests"]["edges"]:
-                    if edge["node"]["author"] is None:
-                        edge["node"]["author"] = {"login":""}
-                    entry = (edge["node"]["id"], repo["owner"]["login"], repo["name"], edge["node"]["author"]["login"],
-                             edge["node"]["state"], edge["node"]["mergedAt"], edge["cursor"])
-                    mergedrequests.append(entry)
-    return stars, forks, openissues, closedissues, openrequests, mergedrequests, org_statistics

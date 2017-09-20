@@ -27,15 +27,20 @@ def accounttype_update(limit=10):
     query = "query { " + query + " }"
     return query
 
-def single_org_query(owner, account_type, limit=10, completequery=True):
+def single_org_query(owner, account_type, limit=10, completequery=True, pagination=False, cursor=None):
     'Form graphql query for the repositories of a list of a signle organization or user (account type must be specified)'
+    owner_alias = "".join(owner.split("-"))
+    if pagination and cursor and completequery:
+        query = 'query { ' + str(owner_alias) + ': '+str(account_type) + '(login: "' + owner + '") { name repositories(first: ' + str(limit) + ' after: "' + cursor + '") { totalCount edges { node { name updatedAt owner { login }  } cursor } } } }'
+        return query
+    if pagination and cursor and not completequery:
+        query = str(owner_alias) + ': '+str(account_type) + '(login: "' + owner + '") { name repositories(first: ' + str(limit) + ' after: "' + cursor + '") { totalCount edges { node { name updatedAt owner { login }  } cursor } } } '
+        return query
     if completequery:
-        query = 'query { organization(login: "'+owner+'") { repositories(first: '+str(limit)+') { edges { node { name updatedAt owner { login } forks{ totalCount } } } } } }'
+        query = 'query { organization(login: "'+owner+'") { name repositories(first: '+str(limit)+') { totalCount edges { node { name updatedAt owner { login } } cursor } } } }'
     else:
-        owner_alias = "".join(owner.split("-"))
-        query = str(owner_alias) + ': '+str(account_type) + '(login: "' + owner + '") { repositories(first: ' + str(limit) + ') { edges { node { name updatedAt forks{ totalCount } owner { login }  } } } } '
+        query = str(owner_alias) + ': '+str(account_type) + '(login: "' + owner + '") { name repositories(first: ' + str(limit) + ') { totalCount edges { node { name updatedAt owner { login }  } cursor } } } '
     return query
-
 
 def multiple_org_query(repo_list, limit=10):
     'Form graphql query for the repositories of a list of organizations or users (account type must be specified)'
@@ -46,23 +51,23 @@ def multiple_org_query(repo_list, limit=10):
     return query
 
 
-def repo_query(owner, repo, num_commits=100, num_stars=100, num_forks=100, num_issues=100, num_pulls=100, full_query = True, create_alias=False):
+def repo_query(owner, repo, num_commits=50, num_stars=50, num_forks=50, num_issues=50, num_pulls=50, full_query = True, create_alias=False):
     'Form graphql query for a single repo'
     if full_query == True:
         if create_alias == True:
             alias = generate_alias(repo)
-            query = 'query { '+ alias +': repository(owner:"'+owner+'", name:"'+repo+'") { name updatedAt owner{ login } ref(qualifiedName: "master") { target { ... on Commit { id history(first: '+str(num_commits)+') { edges { node { oid author { name date } } cursor } pageInfo { hasNextPage } } } } } stargazers(last: '+str(num_stars)+', orderBy: {field: STARRED_AT, direction: ASC}) { totalCount edges { starredAt node { id login } cursor } } forks(last: '+str(num_forks)+') { totalCount edges { node { id createdAt owner { login } } cursor } } openissues: issues(last: '+str(num_issues)+', states: OPEN) { totalCount edges { node { id createdAt state author { login } } cursor } } closedissues: issues(last: '+str(num_issues)+', states: CLOSED) { totalCount edges { node { id createdAt state author { login } timeline(first: 40) { nodes { ... on ClosedEvent { createdAt actor { login } } } } } cursor } } openrequests: pullRequests(last: '+str(num_pulls)+', states: OPEN) { totalCount edges { node { id createdAt state author { login } } cursor } } mergedrequests: pullRequests(last: '+str(num_pulls)+', states: MERGED) { totalCount edges { node { id createdAt mergedAt state author { login } } cursor } } } }'
+            query = 'query { '+ alias +': repository(owner:"'+owner+'", name:"'+repo+'") { name updatedAt owner{ login } ref(qualifiedName: "master") { target { ... on Commit { id history(first: '+str(num_commits)+') { edges { node { oid author { name date } } cursor } pageInfo { hasNextPage } } } } } stargazers(last: '+str(num_stars)+', orderBy: {field: STARRED_AT, direction: ASC}) { totalCount edges { starredAt node { id login } cursor } } forks(last: '+str(num_forks)+') { totalCount edges { node { id createdAt owner { login } } cursor } } openissues: issues(last: '+str(num_issues)+', states: OPEN) { totalCount edges { node { id createdAt state author { login } } cursor } } closedissues: issues(last: '+str(num_issues)+', states: CLOSED) { totalCount edges { node { id createdAt state author { login } timeline(first: 75) { nodes { ... on ClosedEvent { createdAt actor { login } } } } } cursor } } openrequests: pullRequests(last: '+str(num_pulls)+', states: OPEN) { totalCount edges { node { id createdAt state author { login } } cursor } } mergedrequests: pullRequests(last: '+str(num_pulls)+', states: MERGED) { totalCount edges { node { id createdAt mergedAt state author { login } timeline(first: 60) { nodes { ... on MergedEvent { createdAt actor { login } } } } } cursor } } } }'
             return query, alias
         else:
-            query = 'query { repository(owner:"'+owner+'", name:"'+repo+'") { name updatedAt owner{ login } ref(qualifiedName: "master") { target { ... on Commit { id history(first: '+str(num_commits)+') { edges { node { oid author { name date } } cursor } pageInfo { hasNextPage } } } } } stargazers(last: '+str(num_stars)+', orderBy: {field: STARRED_AT, direction: ASC}) { totalCount edges { starredAt node { id login } cursor } } forks(last: '+str(num_forks)+') { totalCount edges { node { id createdAt owner { login } } cursor } } openissues: issues(last: '+str(num_issues)+', states: OPEN) { totalCount edges { node { id createdAt state author { login } } cursor } } closedissues: issues(last: '+str(num_issues)+', states: CLOSED) { totalCount edges { node { id createdAt state author { login } timeline(first: 40) { nodes { ... on ClosedEvent { createdAt actor { login } } } } } cursor } } openrequests: pullRequests(last: '+str(num_pulls)+', states: OPEN) { totalCount edges { node { id createdAt state author { login } } cursor } } mergedrequests: pullRequests(last: '+str(num_pulls)+', states: MERGED) { totalCount edges { node { id createdAt mergedAt state author { login } } cursor } } } }'
+            query = 'query { repository(owner:"'+owner+'", name:"'+repo+'") { name updatedAt owner{ login } ref(qualifiedName: "master") { target { ... on Commit { id history(first: '+str(num_commits)+') { edges { node { oid author { name date } } cursor } pageInfo { hasNextPage } } } } } stargazers(last: '+str(num_stars)+', orderBy: {field: STARRED_AT, direction: ASC}) { totalCount edges { starredAt node { id login } cursor } } forks(last: '+str(num_forks)+') { totalCount edges { node { id createdAt owner { login } } cursor } } openissues: issues(last: '+str(num_issues)+', states: OPEN) { totalCount edges { node { id createdAt state author { login } } cursor } } closedissues: issues(last: '+str(num_issues)+', states: CLOSED) { totalCount edges { node { id createdAt state author { login } timeline(first: 75) { nodes { ... on ClosedEvent { createdAt actor { login } } } } } cursor } } openrequests: pullRequests(last: '+str(num_pulls)+', states: OPEN) { totalCount edges { node { id createdAt state author { login } } cursor } } mergedrequests: pullRequests(last: '+str(num_pulls)+', states: MERGED) { totalCount edges { node { id createdAt mergedAt state author { login } timeline(first: 60) { nodes { ... on MergedEvent { createdAt actor { login } } } } } cursor } } } }'
             return query
     else:
         alias = generate_alias(repo)
-        query = alias + ': repository(owner:"'+owner+'", name:"'+repo+'") { name updatedAt owner{ login } ref(qualifiedName: "master") { target { ... on Commit { id history(first: '+str(num_commits)+') { edges { node { oid author { name date } } cursor } pageInfo { hasNextPage } } } } } stargazers(last: '+str(num_stars)+', orderBy: {field: STARRED_AT, direction: ASC}) { totalCount edges { starredAt node { id login } cursor } } forks(last: '+str(num_forks)+') { totalCount edges { node { id createdAt owner { login } } cursor } } openissues: issues(last: '+str(num_issues)+', states: OPEN) { totalCount edges { node { id createdAt state author { login } } cursor } } closedissues: issues(last: '+str(num_issues)+', states: CLOSED) { totalCount edges { node { id createdAt state author { login } timeline(first: 40) { nodes { ... on ClosedEvent { createdAt actor { login } } } } } cursor } } openrequests: pullRequests(last: '+str(num_pulls)+', states: OPEN) { totalCount edges { node { id createdAt state author { login } } cursor } } mergedrequests: pullRequests(last: '+str(num_pulls)+', states: MERGED) { totalCount edges { node { id createdAt mergedAt state author { login } } cursor } } }'
+        query = alias + ': repository(owner:"'+owner+'", name:"'+repo+'") { name updatedAt owner{ login } ref(qualifiedName: "master") { target { ... on Commit { id history(first: '+str(num_commits)+') { edges { node { oid author { name date } } cursor } pageInfo { hasNextPage } } } } } stargazers(last: '+str(num_stars)+', orderBy: {field: STARRED_AT, direction: ASC}) { totalCount edges { starredAt node { id login } cursor } } forks(last: '+str(num_forks)+') { totalCount edges { node { id createdAt owner { login } } cursor } } openissues: issues(last: '+str(num_issues)+', states: OPEN) { totalCount edges { node { id createdAt state author { login } } cursor } } closedissues: issues(last: '+str(num_issues)+', states: CLOSED) { totalCount edges { node { id createdAt state author { login } timeline(first: 75) { nodes { ... on ClosedEvent { createdAt actor { login } } } } } cursor } } openrequests: pullRequests(last: '+str(num_pulls)+', states: OPEN) { totalCount edges { node { id createdAt state author { login } } cursor } } mergedrequests: pullRequests(last: '+str(num_pulls)+', states: MERGED) { totalCount edges { node { id createdAt mergedAt state author { login } timeline(first: 60) { nodes { ... on MergedEvent { createdAt actor { login } } } } } cursor } } }'
         return query, alias
 
 def pagination_query(owner, repo, cursors, stars=False, forks=False, commits=False, open_issues=False,
-                     closed_issues=False, merged_requests=False, open_requests=False, num=100):
+                     closed_issues=False, merged_requests=False, open_requests=False, num=50):
     'Form and execute query for pagination'
     alias = generate_alias(repo)
     query = 'query { ' + alias + ' : repository(owner:"' + owner + '", name:"' + repo + '") { name updatedAt owner{ login } '
@@ -77,10 +82,10 @@ def pagination_query(owner, repo, cursors, stars=False, forks=False, commits=Fal
             "open_issues"] + '", states: OPEN) { totalCount edges { node { id createdAt state author { login } } cursor } } '
     if closed_issues:
         query += 'closedissues: issues(last: ' + str(num) + ', before: "' + cursors[
-            "closed_issues"] + '", states: CLOSED) { totalCount edges { node { id createdAt state author { login } timeline(first: 12) { nodes { ... on ClosedEvent { createdAt actor { login } } } } } cursor } } '
+            "closed_issues"] + '", states: CLOSED) { totalCount edges { node { id createdAt state author { login } timeline(first: 75) { nodes { ... on ClosedEvent { createdAt actor { login } } } } } cursor } } '
     if merged_requests:
         query += 'mergedrequests: pullRequests(last: ' + str(num) + ', before: "' + cursors[
-            "merged_requests"] + '", states: MERGED) { totalCount edges { node { id createdAt mergedAt state author { login } } cursor } } '
+            "merged_requests"] + '", states: MERGED) { totalCount edges { node { id createdAt mergedAt state author { login } timeline(first: 60) { nodes { ... on MergedEvent { createdAt actor { login } } } } } cursor } } '
     if open_requests:
         query += 'openrequests: pullRequests(last: ' + str(num) + ', before: "' + cursors[
             "open_requests"] + '", states: OPEN) { totalCount edges { node { id createdAt state author { login } } cursor } } '

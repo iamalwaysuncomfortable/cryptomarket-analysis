@@ -48,12 +48,15 @@ def dict_tocsv(csv_file,csv_columns,dict_data):
             print("I/O error({0}): {1}".format(errno, strerror))
     return
 
-def write_json(filename, data, remove_bad_chars=True):
+def write_json(filename, data, remove_bad_chars=True, ascii=False):
     if remove_bad_chars == True:
         for char in (" ", ".", "/", ":"):
             filename = filename.replace(char, "-")
     with open(filename + '.json', 'w') as outfile:
-        json.dump(data, outfile)
+        if ascii:
+            json.dump(data, outfile, ensure_ascii=True)
+        else:
+            json.dump(data, outfile)
     return
 
 def write_log(filename, data):
@@ -62,20 +65,27 @@ def write_log(filename, data):
             outfile.write("%s\n" % item)
     return
 
-def get_time(now=False, months=0, weeks=0, days=0, minutes=0 , seconds=0, utc_string=False, give_unicode=False):
+def get_time(now=False, months=0, weeks=0, days=0, minutes=0 , seconds=0, utc_string=False, give_unicode=False, custom_format=None):
     nowtime = datetime.datetime.now(pytz.utc)
     if now == False:
         nowtime = nowtime - rd(months=months) - rd(weeks=weeks) - rd(days=days) - rd(minutes=minutes) - rd(seconds=seconds)
     if utc_string and give_unicode:
-        return unicode(nowtime.strftime("%Y-%m-%dT%H:%M:%SZ"))
+        if custom_format:
+            return unicode(nowtime.strftime(custom_format))
+        else:
+            return unicode(nowtime.strftime("%Y-%m-%dT%H:%M:%SZ"))
+
     elif utc_string and not give_unicode:
-        return nowtime.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if custom_format:
+            return nowtime.strftime(custom_format)
+        else:
+            return nowtime.strftime("%Y-%m-%dT%H:%M:%SZ")
     else:
         return nowtime
 
-def import_json_file(filename):
+def import_json_file(filename, encoding="utf-8"):
     with open(filename) as file:
-        data = json.load(file)
+        data = json.load(file, encoding=encoding)
     return data
 
 def dt_tostring(dt, give_unicode=False):

@@ -51,17 +51,19 @@ def try_gql_query(query, limitcheck=False, cost=100):
         response = e.response
         print HTTPError.__name__ + " with response of" + str(response.status_code) + " on query:"
         error_data = [e.message, response.status_code, response, query]
+        print(error_data)
         return "error", error_data
     except GithubAPIBadQueryError as e:
         print GithubAPIBadQueryError.__name__ + " on query:"
         error_data = [e.message, e.result, e.query]
+        print(error_data)
         return "error", error_data
     except GithubAPIError as e:
         response = e.data
         print GithubAPIError.__name__ + "with message of " + e.message + "and status code of " + response.status_code + " on query:"
         error_data = [e.message, response.status_code, response, query]
+        print(error_data)
         return "error", error_data
-
     except TypeError as e:
         return "error", [e.message, query]
 
