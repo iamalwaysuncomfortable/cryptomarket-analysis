@@ -83,6 +83,26 @@ def get_time(now=False, months=0, weeks=0, days=0, minutes=0 , seconds=0, utc_st
     else:
         return nowtime
 
+def convert_time_format(time, str2dt=False, dt2str=False, custom_format=None):
+    if (str2dt and dt2str) or (not str2dt and not dt2str):
+        raise(RuntimeError("Only one option (string-->datetime or datetime-->string) allowed"))
+    if not (isinstance(time, datetime.date) or isinstance(time, str) or isinstance(time, unicode)):
+        raise(TypeError("Incorrect time, input must be in str, unicode, or datetime.time format"))
+    if str2dt:
+        if isinstance(time, datetime.date):
+            return time
+        if custom_format:
+            return pytz.utc.localize(datetime.datetime.strptime(time, custom_format))
+        else:
+            return pytz.utc.localize(datetime.datetime.strptime(time, "%Y-%m-%dT%H:%M:%SZ"))
+    if dt2str:
+        if isinstance(time, str) or isinstance(time, unicode):
+            return time
+        if custom_format:
+            return time.strftime(custom_format)
+        else:
+            return time.strftime("%Y-%m-%dT%H:%M:%SZ")
+
 def import_json_file(filename, encoding="utf-8"):
     with open(filename) as file:
         data = json.load(file, encoding=encoding)

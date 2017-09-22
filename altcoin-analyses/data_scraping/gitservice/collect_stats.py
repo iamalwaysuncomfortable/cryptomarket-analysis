@@ -3,7 +3,6 @@ import git_queries as gq
 from dateutil import parser
 from datetime import datetime
 from data_scraping import datautils as du
-from requests import HTTPError
 from custom_errors.github_errors import GithubAPILimitExceededError, GithubPaginationError, GithubAPIBadQueryError, GithubAPIError
 from data_writing import remaining_query_dump, error_processor
 from api_communication import try_gql_query, check_limit, get_gsheet_data
@@ -12,14 +11,15 @@ from api_communication import try_gql_query, check_limit, get_gsheet_data
 def get_repo_lists(single_only=False, multiple_only=False):
     'get list of coin github accounts, sort by single repo or multiple repo accounts'
     repo_list = get_gsheet_data("https://docs.google.com/spreadsheet/ccc?key=1la_UVV4c3YLnvTesLTEq-F1wxL9Rtd2sZkdyq9OBMB4&output=csv")
-    single_repo_list = repo_list[repo_list["single_repo"] == True]
-    if single_only == True:
-        return single_repo_list
     repo_list = repo_list[~repo_list.duplicated("owner") & pd.notnull(repo_list["owner"])]
-    multiple_repo_list = repo_list[repo_list["single_repo"]==False]
+    if single_only == True:
+        single_repo_list = repo_list[repo_list["single_repo"] == True]
+        return single_repo_list
+
     if multiple_only == True:
+        multiple_repo_list = repo_list[repo_list["single_repo"] == False]
         return multiple_repo_list
-    return multiple_repo_list,
+    return repo_list
 
 def paginate_repos(input_data, org_list, error_log):
     orgs_to_paginate = [(name, data) for name, data in input_data['data'].iteritems() if len(data['repositories']['edges']) == 100]
@@ -43,7 +43,7 @@ def paginate_repos(input_data, org_list, error_log):
         error_log.append([query, result])
         return input_data
 
-def get_org_repos(recs_per_call = 20):
+def get_org_repos(recs_per_call = 20, get_org_stats=False):
     'Get all github repositories under a coin github account'
     repo_data = {}
     error_log = []
@@ -51,15 +51,6 @@ def get_org_repos(recs_per_call = 20):
     multiple_repo_list = get_repo_lists(multiple_only=True)
     #Check to see if the github API rate limit has been reached, if so, raise exception
     rec_len = len(multiple_repo_list)
-    cost = (float(rec_len)*102.)/100.
-    try:
-        status, remaining, limit_exceeded, resetAt = check_limit(cost)
-        if limit_exceeded:
-            raise GithubAPILimitExceededError(resetAt, remaining, cost)
-    except HTTPError:
-        pass
-    else:
-        pass
     ###Send query to github API to return all repos under each coin's github account
     #Determine subdivision of records in query
     remainder = rec_len % recs_per_call
@@ -81,6 +72,19 @@ def get_org_repos(recs_per_call = 20):
             repo_data.update(result['data'])
         else:
             error_log.append([query,result])
+    if get_org_stats:
+        for alias, org in repo_data.iteritems():
+            print ("alias:",alias)
+            owner = org["login"].lower()
+            print(owner)
+            multiple_repo_list["owner"] = multiple_repo_list["owner"].str.lower()
+            coin_name = multiple_repo_list[multiple_repo_list["owner"] == owner].iloc[0]["id"]
+            coin_symbol = multiple_repo_list[multiple_repo_list["owner"] == owner].index[0]
+            repo_data[alias]["coin_name"] = coin_name
+            repo_data[alias]["coin_symbol"] = coin_symbol
+        single_repo_list = get_repo_lists(single_only=True)
+        for k, v in single_repo_list.iterrows():
+            repo_data.update({v["owner"]:{"coin_name":v["id"], "coin_symbol":k,"repositories":{"totalCount":1},"login":v["owner"]}})
     try:
         error_processor(get_org_repos.__name__, error_log)
     except:

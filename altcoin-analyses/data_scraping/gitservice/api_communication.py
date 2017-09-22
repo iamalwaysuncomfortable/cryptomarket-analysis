@@ -5,7 +5,7 @@ from requests import HTTPError
 import json
 
 ###API Secret
-secret = ""
+secret = "7c2aa86d1217d2d02ecde9311b87cbc479e14ae6"
 
 ###Data Fetching Utility Methods
 def post_gql_query(gql, secret_):

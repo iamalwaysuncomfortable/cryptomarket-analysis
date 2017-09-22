@@ -1,6 +1,18 @@
 from db_services.db import get_github_analytics_data
+from data_scraping.datautils import get_time
+from data_scraping.datautils import convert_time_format
+
 ###METHODS FOR FETCHING AND PROCESSESING DATA FROM THE DATABASE
 def all_org_stats(start=None, end=None):
+    #Initialize Data]
+    if start:
+        start = convert_time_format(start, dt2str=True)
+    if end:
+        end = convert_time_format(end, dt2str=True)
+
+    data = get_github_analytics_data(True, True, True, True, True, True, start=start, end=end)
+    stats = {}
+
     #Internal methods
     def get_unique_orgs(input_data, index):
         return set(e[index] for e in input_data)
@@ -13,12 +25,11 @@ def all_org_stats(start=None, end=None):
                                      "openrequests": 0,"requestopeners":0, "mergedrequests": 0, "requestmergers":0}
 
     def init_org(org):
-        stats[org] = {"ts_begin": start, "ts_end": end,
+        stats[org] = {"ts_begin": start, "ts_end": end, "coin_name":"", "coin_symbol":"",
                       "stats": {"stars": 0, "forks": 0, "openissues": 0,"issueopeners":0, "closedissues": 0,"issueclosers":0,
                                 "openrequests": 0,"requestopeners":0,"mergedrequests": 0, "requestmergers":0},
-                      "lifetimestats": {"stars": 0, "forks": 0, "openissues": 0, "closedissues": 0, "openrequests": 0,
+                      "lifetime_stats": {"stars": 0, "forks": 0, "openissues": 0, "closedissues": 0, "openrequests": 0,
                                         "mergedrequests": 0}, "repos": {}, "total_repos": 0, "active_repos": 0}
-
     def check_existence(org, repo=None):
         if not repo:
             try:
@@ -58,29 +69,34 @@ def all_org_stats(start=None, end=None):
                     stats[org]["repos"][repo][keys[3]] = len(set([e[6] for e in data[stat] if e[1] == org and e[2] == repo and e[5] == keys[5]]))
         if stat == "orgstats":
             for line in data[stat]:
-                org, last_updated, num_repos = line
+                org, coin_name, coin_symbol, last_updated, num_repos = line
                 check_existence(org)
                 stats[org]["total_repos"] = num_repos
                 stats[org]["active_repos"] = len(stats[org]["repos"])
+                stats[org]["coin_name"] = coin_name
+                stats[org]["coin_symbol"] = coin_symbol
         if stat == "agstats":
             for line in data[stat]:
-                owner, repo, since, stars, forks, open_issues, closed_issues, total_issues, open_pull_requests, merged_pull_requests = line
-
-
-    #Initialize Data
-    data = get_github_analytics_data(True, True, True, True, True, True, start=start, end=end)
-    stats = {}
+                repo, owner, since, stars, forks, open_issues, closed_issues, total_issues, open_pull_requests, merged_pull_requests = line
+                check_existence(owner)
+                check_existence(owner, repo)
+                stats[owner]["repos"][repo]["lifetime_stats"] = {"stars":stars, "forks":forks,
+                                                               "openissues":open_issues, "closedissues":closed_issues,
+                                                               "openrequests":open_pull_requests, "mergedrequests":merged_pull_requests}
+                if owner == "bitcoin":
+                    print(owner, repo)
+                    for k,v in stats[owner]["lifetime_stats"].iteritems():
+                        print(k, stats[owner]["repos"][repo]["lifetime_stats"][k], stats[owner]["lifetime_stats"][k])
+                        stats[owner]["lifetime_stats"][k] += stats[owner]["repos"][repo]["lifetime_stats"][k]
 
     #Fill in stats
-    for i in ["stars", "forks","issues","pullrequests", "orgstats"]:
+    for i in ["stars", "forks","issues","pullrequests","agstats","orgstats"]:
         count_stats(i)
     return stats
 
-def org_stats(org, repo=None, start=None, end=None):
-    data = get_github_analytics_data(True, True, True, True, True, start=start, end=end, org=org, repo=repo)
-
 ###METHODS FOR PRE-PROCESSING DATA GATEHERED FROM THE API
 def collect_org_aggregate_totals(org, since, org_name, repo_count_only=True):
+    since = convert_time_format(since, dt2str=True)
     org_totals = {}
     org_totals["stargazers"], org_totals["forks"], org_totals["open_issues"], org_totals["closed_issues"] = 0,0,0,0
     org_totals["total_issues"], org_totals["open_pull_requests"], org_totals["merged_pull_requests"] = 0,0,0
@@ -99,10 +115,12 @@ def collect_org_aggregate_totals(org, since, org_name, repo_count_only=True):
     return result
 
 def stage_org_totals(org_list, since):
-    return [(org["name"],since, org["totalCount"]) for name, org in org_list["data"].iteritems()]
+    since = convert_time_format(since, dt2str=True)
+    return [(org["login"],org["coin_name"], org["coin_symbol"], since, org["repositories"]["totalCount"]) for name, org in org_list.iteritems()]
 
 
 def collect_repo_totals(org, since):
+    since = convert_time_format(since, dt2str=True)
     repo_stats = []
     for name, repo in org.iteritems():
         repo["totalissues"] = {'totalCount': repo['openissues']['totalCount'] + repo['closedissues']['totalCount']}

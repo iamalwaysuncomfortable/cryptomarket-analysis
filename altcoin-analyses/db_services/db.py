@@ -2,6 +2,7 @@ import psycopg2
 from dbconfig import config
 from data_scraping.datautils import import_json_file
 from data_scraping.datautils import get_time
+from data_scraping.datautils import convert_time_format
 
 def query_database(query_list, num_records, all):
     conn = None
@@ -40,10 +41,11 @@ def query_database(query_list, num_records, all):
 def get_github_analytics_data(stars=False, forks=False, pullrequests=False, issues=False, stats=False, orgtotals = False, all_records=True, num_records=0, start=None, end=None, org = None, repo = None):
     """ query parts from the parts table """
     query_list = []
-    start_date = "2007-10-01 00:00:00"
-    end_date = get_time(now=True, utc_string=True, custom_format="%Y-%m-%d %H:%M:%S")
+    start_date = "2007-10-01T00:00:00Z"
+    end_date = get_time(now=True, utc_string=True)
     org_clause = ""
     org_clause_stats = ""
+
     if org:
         if repo:
             org_clause = " AND (owner, repo) = ('"+org+"', '"+repo+"')"
@@ -52,9 +54,9 @@ def get_github_analytics_data(stars=False, forks=False, pullrequests=False, issu
             org_clause = " AND owner = '"+org+"'"
             org_clause_stats = " WHERE owner = '"+org+"'"
     if start:
-        start_date = start
+        start_date = convert_time_format(start, dt2str=True)
     if end:
-        end_date = end
+        end_date = convert_time_format(end, dt2str=True)
 
     if stars:
         query_list.append(("stars",
@@ -70,10 +72,10 @@ def get_github_analytics_data(stars=False, forks=False, pullrequests=False, issu
             ("pullrequests", "SELECT * FROM devdata.pullrequests WHERE COALESCE(merged_at, created_at) BETWEEN timestamp '"+ start_date +"' and timestamp '"+ end_date +"' ORDER BY COALESCE(merged_at, created_at) DESC"))
     if stats:
         query_list.append(
-            ("stats", "SELECT * FROM devdata.agstats"+ org_clause_stats +" ORDER BY _at DESC"))
+            ("agstats", "SELECT * FROM devdata.agstats"+ org_clause_stats +" ORDER BY _at DESC"))
     if orgtotals:
         query_list.append(
-            ("orgtotals", "SELECT * FROM devdata.orgstats"))
+            ("orgstats", "SELECT * FROM devdata.orgstats"))
 
     result = query_database(query_list, num_records, all_records)
     return result
@@ -91,7 +93,9 @@ def write_data(inputs):
 
         # create a cursor
         cur = conn.cursor()
+        print inputs
         for input in inputs:
+            print input
             sql, data = input
             for item in data:
                 print(sql)

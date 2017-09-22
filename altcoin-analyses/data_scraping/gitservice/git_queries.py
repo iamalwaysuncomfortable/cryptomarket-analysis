@@ -31,15 +31,15 @@ def single_org_query(owner, account_type, limit=10, completequery=True, paginati
     'Form graphql query for the repositories of a list of a signle organization or user (account type must be specified)'
     owner_alias = "".join(owner.split("-"))
     if pagination and cursor and completequery:
-        query = 'query { ' + str(owner_alias) + ': '+str(account_type) + '(login: "' + owner + '") { name repositories(first: ' + str(limit) + ' after: "' + cursor + '") { totalCount edges { node { name updatedAt owner { login }  } cursor } } } }'
+        query = 'query { ' + str(owner_alias) + ': '+str(account_type) + '(login: "' + owner + '") { login repositories(first: ' + str(limit) + ' after: "' + cursor + '") { totalCount edges { node { name updatedAt owner { login }  } cursor } } } }'
         return query
     if pagination and cursor and not completequery:
-        query = str(owner_alias) + ': '+str(account_type) + '(login: "' + owner + '") { name repositories(first: ' + str(limit) + ' after: "' + cursor + '") { totalCount edges { node { name updatedAt owner { login }  } cursor } } } '
+        query = str(owner_alias) + ': '+str(account_type) + '(login: "' + owner + '") { login repositories(first: ' + str(limit) + ' after: "' + cursor + '") { totalCount edges { node { name updatedAt owner { login }  } cursor } } } '
         return query
     if completequery:
-        query = 'query { organization(login: "'+owner+'") { name repositories(first: '+str(limit)+') { totalCount edges { node { name updatedAt owner { login } } cursor } } } }'
+        query = 'query { organization(login: "'+owner+'") { login repositories(first: '+str(limit)+') { totalCount edges { node { name updatedAt owner { login } } cursor } } } }'
     else:
-        query = str(owner_alias) + ': '+str(account_type) + '(login: "' + owner + '") { name repositories(first: ' + str(limit) + ') { totalCount edges { node { name updatedAt owner { login }  } cursor } } } '
+        query = str(owner_alias) + ': '+str(account_type) + '(login: "' + owner + '") { login repositories(first: ' + str(limit) + ') { totalCount edges { node { name updatedAt owner { login }  } cursor } } } '
     return query
 
 def multiple_org_query(repo_list, limit=10):
