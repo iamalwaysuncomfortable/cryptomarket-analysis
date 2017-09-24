@@ -60,7 +60,7 @@ def get_techinfo(uri):
     return data
 
 def get_derivative_coin_data():
-    page = get_data('https://coinmarketcap.com/assets/views/all/')
+    page = get_data('https://coinmarketcap.com/tokens/views/all/')
     if page.status_code == 200:
         contents = page.content
         soup = BeautifulSoup(contents, 'html.parser')
