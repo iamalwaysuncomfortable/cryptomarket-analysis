@@ -16,7 +16,7 @@ def read_csv(url):
         return cr
 
 def post_data(uri, data="", headers = "", max_retries=5):
-    retries = Retry(total=max_retries, backoff_factor=1, status_forcelist=[502, 503, 504])
+    retries = Retry(total=max_retries, backoff_factor=1)
     with requests.Session() as s:
         a = HTTPAdapter(max_retries=retries)
         s.mount('https://', a)
@@ -92,10 +92,6 @@ def get_social_and_dev_data():
             liquidity_btc = entries[4].get_text(strip=True)
             liquidity_btc = normalize('NFKD', liquidity_btc).replace(u"\u0e3f", "")
             try:
-                stars, forks, watchers, issues, closed_issues, merged_pull_requests, contributors, commits = get_tr_text(entries[6].get_text() + entries[7].get_text(), give_tuple=True)
-            except:
-                stars, forks, watchers, issues, closed_issues, merged_pull_requests, contributors, commits = (0,0,0,0,0,0,0,0)
-            try:
                 subs, av_users, hourly_posts, hourly_comments = get_tr_text(entries[9].get_text(), give_tuple=True)
             except:
                 subs, av_users, hourly_posts, hourly_comments = (0,0,0,0)
@@ -107,7 +103,7 @@ def get_social_and_dev_data():
                 bing_results, alexa_ranking = get_tr_text(entries[12].get_text(), give_tuple=True)
             except:
                 bing_results, alexa_ranking = (0,0)
-            data[symbol] = {"liquidity_btc":liquidity_btc, "stars":stars, "forks":forks, "watchers":watchers, "issues":issues,"closed_issues":closed_issues,"merged_pull_requests":merged_pull_requests, "contributors":contributors,"commits_last_4_weeks":commits, "reddit_subscibers":subs, "av_users_online":av_users, "av_posts_per_hour":hourly_posts,"av_hourly_comments_on_hot_posts":hourly_comments, "facebook_likes":facebook_likes, "twitter_followers":twitter_followers, "bing_results":bing_results, "alexa_ranking":alexa_ranking}
+            data[symbol] = {"liquidity_btc":liquidity_btc, "reddit_subscibers":subs, "av_users_online":av_users, "av_posts_per_hour":hourly_posts,"av_hourly_comments_on_hot_posts":hourly_comments, "facebook_likes":facebook_likes, "twitter_followers":twitter_followers, "bing_results":bing_results, "alexa_ranking":alexa_ranking}
     result = pd.DataFrame(data.values(), data.keys())
     return result
 

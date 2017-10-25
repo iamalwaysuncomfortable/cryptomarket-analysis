@@ -65,8 +65,25 @@ def write_log(filename, data):
             outfile.write("%s\n" % item)
     return
 
-def get_time(now=False, months=0, weeks=0, days=0, minutes=0 , seconds=0, utc_string=False, give_unicode=False, custom_format=None):
-    nowtime = datetime.datetime.now(pytz.utc)
+def make_utc_aware(time):
+    if not isinstance(time, datetime.date):
+        raise TypeError("Incorrect input format, input must be in datetime.time format")
+    if not time.tzname():
+        aware_time = pytz.utc.localize(time)
+    elif time.tzname() is not 'UTC':
+        raise ValueError("Datetime must be UTC! Non UTC timezones are not allowed")
+    else:
+        aware_time = time
+    return aware_time
+
+def get_time(now=False, months=0, weeks=0, days=0, minutes=0 , seconds=0, utc_string=False, give_unicode=False, custom_format=None, input_time=None):
+    if input_time:
+        try:
+            nowtime = convert_time_format(input_time, str2dt=True)
+        except TypeError:
+            raise TypeError("Incorrect time, input must be in str, unicode, or datetime.time format")
+    else:
+        nowtime = datetime.datetime.now(pytz.utc)
     if now == False:
         nowtime = nowtime - rd(months=months) - rd(weeks=weeks) - rd(days=days) - rd(minutes=minutes) - rd(seconds=seconds)
     if utc_string and give_unicode:

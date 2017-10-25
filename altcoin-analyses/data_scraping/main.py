@@ -6,7 +6,11 @@ import time
 import datetime
 import numpy as np
 import analysis.regression as reg
+import data_scraping.gitservice.interface as I
+import log_service.logger_factory as lf
+from data_scraping.gitservice.data_writing import db_exists
 
+lf.launch_logging_service()
 
 cmp_num_columns = ['price_usd', 'market_cap_usd', 'price_usd', '24h_volume_usd', 'price_btc', 'rank', 'total_supply',
                    'percent_change_1h', 'percent_change_24h', 'percent_change_7d']
@@ -56,12 +60,41 @@ combined_data["av_price_derivative_tokens"] = 0.0
 for symbol, count in platform_adoption_count.iteritems():
     if symbol != "unique":
         combined_data.set_value(symbol, "derivative_token_count", count)
-        combined_data.set_value(symbol, "derivative_token_mcap",
-                                platform_adoption_data.loc[symbol]["market_cap_usd"]["sum"])
-        combined_data.set_value(symbol, "24h_volume_derivative_tokens",
-                                platform_adoption_data.loc[symbol]["24h_volume_usd"]["sum"])
-        combined_data.set_value(symbol, "av_price_derivative_tokens",
-                                platform_adoption_data.loc[symbol]["price_usd"]["mean"])
+        combined_data.set_value(symbol, "derivative_token_mcap", platform_adoption_data.loc[symbol]["market_cap_usd"]["sum"])
+        combined_data.set_value(symbol, "24h_volume_derivative_tokens", platform_adoption_data.loc[symbol]["24h_volume_usd"]["sum"])
+        combined_data.set_value(symbol, "av_price_derivative_tokens", platform_adoption_data.loc[symbol]["price_usd"]["mean"])
+
+
+# Integrate dev stats pulled from Github API
+def collect_github_stats(df):
+    I.retrieve_data_since_last_update_from_github()
+    monthly_dev_stats = I.collect_all_stats_in_time_range(du.get_time(months=1, utc_string=True), du.get_time(now=True, utc_string=True))
+    print("monthly dev stats are")
+    print(type(monthly_dev_stats))
+    print(monthly_dev_stats)
+    fields = monthly_dev_stats.itervalues().next()
+    for key in fields['stats'].keys(): df[key + "_last_30_days"] = np.nan
+    for key in fields['lifetime_stats'].keys():
+        if not key in df.columns: df[key + "_all_time"] = np.nan
+        else: df.rename(index=str, columns={key: key + "_all_time"})
+    df["total_repos"], df["active_repos"] = np.nan, np.nan
+    for k, v in monthly_dev_stats.iteritems():
+        symbol = v["coin_symbol"]
+        if symbol in combined_data.index:
+            for stat_name, data in v['stats'].iteritems():
+                combined_data.set_value(symbol, stat_name + "_last_30_days",data)
+            for stat_name, data in v['lifetime_stats'].iteritems():
+                combined_data.set_value(symbol, stat_name + "_all_time", data)
+            combined_data.set_value(symbol, "total_repos", v["total_repos"])
+            combined_data.set_value(symbol, "active_repos", v["active_repos"])
+
+def execute_db_dependent_feature_collection():
+    if not db_exists():
+        return
+    collect_github_stats(combined_data)
+
+execute_db_dependent_feature_collection()
+
 
 #Perform Regression to determine how currencies in related classes perform
 reg_data = du.filter_df(combined_data, m_filters=measure_filters, d_exclude=True)

@@ -1,10 +1,42 @@
 import psycopg2
 from dbconfig import config
-from data_scraping.datautils import import_json_file
-from data_scraping.datautils import get_time
-from data_scraping.datautils import convert_time_format
+import log_service.logger_factory as lg
+logging = lg.get_loggly_logger(__name__)
 
-def query_database(query_list, num_records, all):
+def change_encoding(_types, scope=None):
+    def set_type(_type):
+        if _type == "DateTime->String":
+            NewDate = psycopg2.extensions.new_type((1082,), 'DATE', psycopg2.STRING)
+            logging.debug("Type is %s, scope is %s", _type, scope)
+            psycopg2.extensions.register_type(NewDate, scope)
+        if _type == "BigInt->Float":
+            logging.debug("Type is %s", _type)
+            SmallInt = psycopg2.extensions.new_type((20,), 'INT8', psycopg2.NUMBER)
+            logging.debug("Type is %s, scope is %s", _type, scope)
+            psycopg2.extensions.register_type(SmallInt, scope)
+    if isinstance(_types, str):
+        set_type(_types)
+    if hasattr(_types, "__iter__"):
+        for _type in _types:
+            set_type(_type)
+
+def check_existence():
+    conn = None
+    exists = False
+    params = config()
+    try:
+        conn = psycopg2.connect(**params)
+        logging.info("DB exists and is accessible with parameters passed: %s", params)
+        exists = True
+    except Exception as e:
+        logging.exception("Passed configuration parameters %s fail for reason: %", params, e.message)
+    finally:
+        if conn is not None:
+            conn.close()
+            logging.info('Database connection closed.')
+    return exists
+
+def query_database(query_list, num_records, all, typecasts=None, scope=None):
     conn = None
     results = {}
     try:
@@ -12,73 +44,78 @@ def query_database(query_list, num_records, all):
         params = config()
 
         # connect to the PostgreSQL server
-        print('Connecting to the PostgreSQL database...')
+        logging.info('Connecting to the PostgreSQL database...')
         conn = psycopg2.connect(**params)
 
         # create a cursor
         cur = conn.cursor()
+
+        #Set any custom return types desired
+        if typecasts:
+            logging.info('Typecasting was enacted with scope %s and type %s', scope, typecasts)
+            if scope == "cur":
+                change_encoding(typecasts, cur)
+            if scope == "conn":
+                change_encoding(typecasts, conn)
 
         # execute a statement
         for query in query_list:
             cur.execute(query[1])
             if all == True:
                 results[query[0]] = cur.fetchall()
+                logging.info("query %s being executed, all records requested", query)
             elif num_records == 1 and all == False:
+                logging.info("query %s being executed, %s record requested", query, num_records)
                 results[query[0]] = [cur.fetchone()]
             elif num_records > 1 and all == False:
+                logging.info("query %s being executed, %s records requested", query, num_records)
                 results[query[0]] = cur.fetchmany(num_records)
 
         # close the communication with the PostgreSQL
         cur.close()
     except (Exception, psycopg2.DatabaseError) as error:
-        print(error)
+        logging.exception("query failed with stack trace:")
     finally:
         if conn is not None:
             conn.close()
-            print('Database connection closed.')
+            logging.info("database connection closed")
     return results
 
-def get_github_analytics_data(stars=False, forks=False, pullrequests=False, issues=False, stats=False, orgtotals = False, all_records=True, num_records=0, start=None, end=None, org = None, repo = None):
-    """ query parts from the parts table """
-    query_list = []
-    start_date = "2007-10-01T00:00:00Z"
-    end_date = get_time(now=True, utc_string=True)
-    org_clause = ""
-    org_clause_stats = ""
+def make_single_query(query, num_records=0, all=True):
+    conn = None
+    results = {}
+    try:
+        # read connection parameters
+        params = config()
 
-    if org:
-        if repo:
-            org_clause = " AND (owner, repo) = ('"+org+"', '"+repo+"')"
-            org_clause_stats = " WHERE (owner, repo) = ('"+org+"', '"+repo+"')"
-        else:
-            org_clause = " AND owner = '"+org+"'"
-            org_clause_stats = " WHERE owner = '"+org+"'"
-    if start:
-        start_date = convert_time_format(start, dt2str=True)
-    if end:
-        end_date = convert_time_format(end, dt2str=True)
+        # connect to the PostgreSQL server
+        logging.info('Connecting to the PostgreSQL database...')
+        conn = psycopg2.connect(**params)
 
-    if stars:
-        query_list.append(("stars",
-            "SELECT * FROM devdata.stars WHERE starred_at BETWEEN timestamp '" + start_date + "' and timestamp '" + end_date + "'"+ org_clause +" ORDER BY owner, repo, starred_at DESC"))
-    if forks:
-        query_list.append(
-            ("forks","SELECT * FROM devdata.forks WHERE created_at BETWEEN timestamp '" + start_date + "' and timestamp '" + end_date + "'"+ org_clause +" ORDER BY owner, repo, created_at DESC"))
-    if issues:
-        query_list.append(
-            ("issues", "SELECT * FROM devdata.issues WHERE COALESCE(closed_at, created_at) BETWEEN timestamp '"+ start_date +"' and timestamp '"+ end_date +"'"+ org_clause +" ORDER BY owner, repo, COALESCE(closed_at, created_at) DESC"))
-    if pullrequests:
-        query_list.append(
-            ("pullrequests", "SELECT * FROM devdata.pullrequests WHERE COALESCE(merged_at, created_at) BETWEEN timestamp '"+ start_date +"' and timestamp '"+ end_date +"' ORDER BY COALESCE(merged_at, created_at) DESC"))
-    if stats:
-        query_list.append(
-            ("agstats", "SELECT * FROM devdata.agstats"+ org_clause_stats +" ORDER BY _at DESC"))
-    if orgtotals:
-        query_list.append(
-            ("orgstats", "SELECT * FROM devdata.orgstats"))
+        # create a cursor
+        cur = conn.cursor()
 
-    result = query_database(query_list, num_records, all_records)
-    return result
+        # execute a statement
+        cur.execute(query)
+        if all == True:
+            logging.info("query %s being executed, all records requested", query)
+            results = cur.fetchall()
+        elif num_records == 1 and all == False:
+            logging.info("query %s being executed, %s record requested", query, num_records)
+            results = cur.fetchone()
+        elif num_records > 1 and all == False:
+            logging.info("query %s being executed, %s records requested", query, num_records)
+            results = cur.fetchmany(num_records)
+
+        # close the communication with the PostgreSQL
+        cur.close()
+    except (Exception, psycopg2.DatabaseError) as error:
+        logging.exception("query failed with stack trace:")
+    finally:
+        if conn is not None:
+            conn.close()
+            logging.info('Database connection closed.')
+    return results
 
 def write_data(inputs):
     conn = None
@@ -88,41 +125,55 @@ def write_data(inputs):
         params = config()
 
         # connect to the PostgreSQL server
-        print('Connecting to the PostgreSQL database...')
+        logging.info('Connecting to the PostgreSQL database...')
         conn = psycopg2.connect(**params)
 
         # create a cursor
         cur = conn.cursor()
-        print inputs
         for input in inputs:
-            print input
             sql, data = input
+            logging.info("%s items with sql write statement %s being executed", sql, len(data))
             for item in data:
-                print(sql)
-                print(item)
                 cur.execute(sql, item)
-        # commit the changes to the database
+        logging.info('Changes being committed')
         conn.commit()
         # close communication with the database
         cur.close()
     except (Exception, psycopg2.DatabaseError) as error:
-        print(error)
+        logging.exception("Error in db write, stack trace is:")
     finally:
         if conn is not None:
             conn.close()
-            print('Database connection closed.')
+            logging.info('Database connection closed.')
     return
 
-def push_github_analytics_data(stars = None, forks = None, issues = None, pullrequests = None, stats = None, orgstats=None):
-    data_to_write = []
-    table_names = ("stars", "forks", "issues", "pullrequests", "agstats", "orgstats")
-    input_data = (stars, forks, issues, pullrequests, stats, orgstats)
-    requests = import_json_file("db_services/git_sql_pushstatements.json")
-    i = 0
-    for values in input_data:
-        if values:
-            sql = requests[table_names[i]]
-            data_to_write.append((sql, input_data[i]))
-        i += 1
-    write_data(data_to_write)
+def write_single_record(sql, data=None):
+    conn = None
+    results = {}
+    try:
+        # read connection parameters
+        params = config()
+        # connect to the PostgreSQL server
+        logging.info('Connecting to the PostgreSQL database...')
+        conn = psycopg2.connect(**params)
+        # create a cursor
+        cur = conn.cursor()
+        if data:
+            logging.info("sql statement %s being executed with data: %s", sql, data)
+            cur.execute(sql, data)
+        else:
+            logging.info("sql statement %s being executed", sql)
+            cur.execute(sql)
+        # commit the changes to the database
+        logging.info('Changes being committed')
+        conn.commit()
+        # close communication with the database
+        cur.close()
+    except (Exception, psycopg2.DatabaseError) as error:
+        logging.exception("Error in db write, stack trace is:")
+    finally:
+        if conn is not None:
+            conn.close()
+            logging.info('Database connection closed.')
     return
+
