@@ -5,12 +5,13 @@ from requests import HTTPError
 import json
 import time
 import log_service.logger_factory as lf
+from res.env_config import get_envar
 from custom_errors.github_errors import GithubAPILimitExceededError
 ##Setup Logger
 logging = lf.get_loggly_logger(__name__)
 
 ###API Secret
-secret = "YERDADDYSAPIKEY"
+secret = get_envar("GITHUB_API_SECRET")
 
 ###Data Fetching Utility Methods
 def post_gql_query(gql, secret_):
@@ -24,7 +25,7 @@ def post_gql_query(gql, secret_):
         raise TypeError("gql passed to post_gql_query function was " + type(gql).__name__ + ", string or .graphql required")
     token = "bearer " + secret_
     headers = {"Authorization": token}
-    response = su.post_data('https://api.github.com/graphql', json.dumps({"query": query}), headers=headers, max_retries=10)
+    response = su.post_http('https://api.github.com/graphql', json.dumps({"query": query}), headers=headers, max_retries=10)
     if response.status_code == 200:
         try:
             result = response.json()

@@ -126,6 +126,7 @@ def page_backwards(org_data, owner, repo, since, num):
     page_state = {"stars": True, "forks": True, "commits": True, "openissues": True, "closedissues": True,
                   "openrequests": True, "mergedrequests": True}
     cursors = {}
+    since_delta_7w = du.get_time(input_time=since, weeks=7)
 
     #Get cursors from last element in list
     def get_cursors(data, _page_state):
@@ -149,7 +150,7 @@ def page_backwards(org_data, owner, repo, since, num):
                                      data["data"][alias]["closedissues"]["edges"]]
                         for timeline in timelines:
                             closed_dates = [event["createdAt"] for event in timeline if bool(event)]
-                            if closed_dates and max(closed_dates) > since:
+                            if closed_dates and max(closed_dates) > since_delta_7w:
                                 cursors[key] = data["data"][alias][key]["edges"][0]["cursor"]
                                 _page_state[key] = True
 
@@ -158,9 +159,12 @@ def page_backwards(org_data, owner, repo, since, num):
                             first_item = data["data"][alias][key]["edges"][0]["starredAt"]
                         elif key == "mergedrequests":
                             first_item = max([x['node']['mergedAt'] for x in data["data"][alias][key]["edges"]])
+                            if first_item > since_delta_7w:
+                                cursors[key] = data["data"][alias][key]["edges"][0]["cursor"]
+                                _page_state[key] = True
                         else:
                             first_item = data["data"][alias][key]["edges"][0]["node"]["createdAt"]
-                        if first_item > since:
+                        if first_item > since and key !="mergedrequests":
                             cursors[key] = data["data"][alias][key]["edges"][0]["cursor"]
                             _page_state[key] = True
 

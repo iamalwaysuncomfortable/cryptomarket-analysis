@@ -49,7 +49,7 @@ def retrieve_alltime_data_from_github():
 @log_exceptions_from_entry_function(logging)
 def retrieve_data_since_last_update_from_github():
     start_date = get_db_timestamp()
-    start_date_delta = get_time(weeks=1, input_time=start_date, utc_string=True)
+    start_date_delta = get_time(days=1, input_time=start_date, utc_string=True)
     retrieve_data_from_github_from_date(start_date_delta)
 
 def collect_all_stats_in_time_range(start, end):

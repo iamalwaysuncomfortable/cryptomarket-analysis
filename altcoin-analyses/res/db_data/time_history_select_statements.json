@@ -1,0 +1,4 @@
+{"stars": "select count(id) as star_count, owner, starred_at::date as _date FROM devdata.stars GROUP BY owner, starred_at::date ORDER BY lower(owner) ASC",
+"forks": "select count(id) as fork_count, owner, created_at::date as _date FROM devdata.forks GROUP BY owner, created_at::date ORDER BY lower(owner) ASC",
+"issues": "select count(id) as issue_close_count, owner, closed_at::date as _date FROM devdata.issues GROUP BY owner, closed_at::date ORDER BY lower(owner) ASC",
+"pullrequests": "select count(id) request_merge_count, owner, merged_at::date as _date FROM devdata.pullrequests GROUP BY owner, merged_at::date ORDER BY lower(owner) ASC"}

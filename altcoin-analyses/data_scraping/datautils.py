@@ -3,6 +3,8 @@ import csv
 import json
 import pytz
 import datetime
+import time
+import logging
 from dateutil.relativedelta import relativedelta as rd
 
 ##Data Cleaning Utility Methods
@@ -65,6 +67,7 @@ def write_log(filename, data):
             outfile.write("%s\n" % item)
     return
 
+#Time methods
 def make_utc_aware(time):
     if not isinstance(time, datetime.date):
         raise TypeError("Incorrect input format, input must be in datetime.time format")
@@ -76,7 +79,8 @@ def make_utc_aware(time):
         aware_time = time
     return aware_time
 
-def get_time(now=False, months=0, weeks=0, days=0, minutes=0 , seconds=0, utc_string=False, give_unicode=False, custom_format=None, input_time=None):
+def get_time(now=False, months=0, weeks=0, days=0, minutes=0 , seconds=0, utc_string=False,
+             give_unicode=False, custom_format=None, input_time=None, add=False):
     if input_time:
         try:
             nowtime = convert_time_format(input_time, str2dt=True)
@@ -85,7 +89,12 @@ def get_time(now=False, months=0, weeks=0, days=0, minutes=0 , seconds=0, utc_st
     else:
         nowtime = datetime.datetime.now(pytz.utc)
     if now == False:
-        nowtime = nowtime - rd(months=months) - rd(weeks=weeks) - rd(days=days) - rd(minutes=minutes) - rd(seconds=seconds)
+        if add == True:
+            nowtime = nowtime + rd(months=months) + rd(weeks=weeks) + rd(days=days) + rd(minutes=minutes) + rd(
+                seconds=seconds)
+        else:
+            nowtime = nowtime - rd(months=months) - rd(weeks=weeks) - rd(days=days) - rd(minutes=minutes) - rd(
+                seconds=seconds)
     if utc_string and give_unicode:
         if custom_format:
             return unicode(nowtime.strftime(custom_format))
@@ -120,16 +129,98 @@ def convert_time_format(time, str2dt=False, dt2str=False, custom_format=None):
         else:
             return time.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-def import_json_file(filename, encoding="utf-8"):
-    with open(filename) as file:
-        data = json.load(file, encoding=encoding)
-    return data
-
 def dt_tostring(dt, give_unicode=False):
     if give_unicode:
         return unicode(dt.strftime("%Y-%m-%dT%H:%M:%SZ"))
     else:
         return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+def time_is_after(time_to_check, base_time=None):
+    _time_to_check = convert_time_format(time_to_check, str2dt=True)
+    if base_time == None:
+        _base_time = get_time(now=True)
+    else:
+        _base_time = convert_time_format(base_time, str2dt=True)
+    if _time_to_check > _base_time:
+        return True
+    else:
+        return False
+
+###Epoch Methods
+def get_epoch(epoch=None, current=False, cast_int=False, cast_str=False, seconds=0, minutes=0,
+              hours = 0, days=0, years=0, add=False):
+    _epoch = epoch
+    if isinstance(_epoch, (int, float)) and current==True:
+        logging.warn("If current param is set to true, epoch input will be erased in favor of current epoch")
+    elif not isinstance(_epoch, (int, float)) and current==False:
+        error_msg = "An epoch must be supplied or current param must be set to True"
+        logging.error(error_msg, exc_info=True)
+        raise ValueError(error_msg)
+
+    if isinstance(_epoch, (int, float)):
+        extra_seconds = seconds + minutes * 60 + hours * 3600 + days * 86400 + years * 86400 * 365
+        if add==True:
+            _epoch += extra_seconds
+        if add==False:
+            _epoch -= extra_seconds
+        if _epoch < 0:
+            _epoch = 0
+
+    if current==True:
+        _epoch = time.time()
+
+    if cast_int is False and cast_str is False:
+        return _epoch
+    if cast_int is True and cast_str is False:
+        return int(_epoch)
+    if cast_int is False and cast_str is True:
+        return str(_epoch)
+    if cast_int is True and cast_str is True:
+        return str(int(_epoch))
+
+def validate_epoch(date, default_date=None):
+    def raise_epoch_error():
+        error_msg = "Start date must be a numerical types or a string castable to float," \
+                    " date was %s, default_date was %s" %(str(date), str(default_date))
+        logging.error(error_msg, exc_info=True)
+        raise ValueError(error_msg)
+    if isinstance(date, (int, float, str)):
+        try:
+            epoch = float(date)
+            date = get_epoch(epoch, cast_str=False, cast_int=False)
+            return date
+        except:
+            raise_epoch_error()
+    else:
+        if isinstance(default_date, (int, float)):
+            return get_epoch(default_date, cast_str=False, cast_int=True)
+        else:
+            raise_epoch_error()
+
+#Misc Methods
+def validate_number(number, default_number):
+    if isinstance(number, (int, float)):
+        return number
+    elif isinstance(default_number, (int, float)):
+        return default_number
+    else:
+        raise ValueError("No numbers input for number or default number")
+
+def any_num(*args):
+    if not all(isinstance(arg, (int, float)) or arg==None for arg in args):
+        error_msg = "At least one passed is not a number or None type, args were %s" %(str(args))
+        logging.error(error_msg, exc_info=True)
+        raise ValueError(error_msg)
+    elif any(isinstance(arg,(int, float)) for arg in args):
+        return True
+    else:
+        return False
+
+
+def import_json_file(filename, encoding="utf-8"):
+    with open(filename) as file:
+        data = json.load(file, encoding=encoding)
+    return data
 
 def striplines(file):
     'strip lines'

@@ -147,6 +147,21 @@ def write_data(inputs):
             logging.info('Database connection closed.')
     return
 
+def return_connection():
+    conn = None
+    try:
+        # read connection parameters
+        params = config()
+
+        # connect to the PostgreSQL server
+        logging.info('Connecting to the PostgreSQL database...')
+        conn = psycopg2.connect(**params)
+        return conn
+    except (Exception, psycopg2.DatabaseError) as error:
+        logging.exception("Error in db write, stack trace is:")
+        if conn is not None:
+            conn.close()
+
 def write_single_record(sql, data=None):
     conn = None
     results = {}
@@ -176,4 +191,3 @@ def write_single_record(sql, data=None):
             conn.close()
             logging.info('Database connection closed.')
     return
-

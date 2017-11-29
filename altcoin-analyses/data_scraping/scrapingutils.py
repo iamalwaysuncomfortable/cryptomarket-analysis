@@ -7,6 +7,7 @@ from random import randint
 from time import sleep
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
+from requests.auth import HTTPBasicAuth
 from requests.packages.urllib3.util.retry import Retry
 
 logging = lf.get_loggly_logger(__name__)
@@ -18,7 +19,7 @@ def read_csv(url):
         cr = pd.read_csv(io.StringIO(s.decode('utf-8')), index_col="symbol")
         return cr
 
-def post_data(uri, data="", headers = None, max_retries=5, auth=None):
+def post_http(uri, data="", headers = None, max_retries=5, auth=None):
     retries = Retry(total=max_retries, backoff_factor=1)
     with requests.Session() as s:
         a = HTTPAdapter(max_retries=retries)
@@ -26,12 +27,14 @@ def post_data(uri, data="", headers = None, max_retries=5, auth=None):
         response = s.post(uri, data, headers=headers, auth=auth)
     return response
 
-def get_oauth_token(url, app_id, app_secret, post_data, headers = None):
-    client_auth = requests.auth.HTTPBasicAuth(app_id, app_secret)
-    response = post_data(url, auth=client_auth, data=post_data,headers=headers)
-    return response
+def get_oauth_token(url, app_id, app_secret, post_data, header = None):
+    logging.debug("get_oauth_token launched")
+    client_auth = HTTPBasicAuth(app_id, app_secret)
+    response = post_http(url, auth=client_auth, data=post_data, headers=header)
+    logging.debug("client_auth is %s, response is %s", client_auth, response)
+    return response.json()
 
-def get_data(uri, parameters = None, max_retries=5, headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36'}):
+def get_http(uri, parameters = None, max_retries=5, headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36'}):
     """ Get data from API or download HTML, try each URI 5 times """
     with requests.Session() as s:
         a = requests.adapters.HTTPAdapter(max_retries)
@@ -55,7 +58,7 @@ def get_coinlist(uri, parameters = None):
 
 ###Get main ranking data
 def get_techinfo(uri):
-    response = get_data(uri)
+    response = get_http(uri)
     json_data = response.json()
     algo_dict = {}
     for coin, metadata in json_data["Data"].items():
@@ -65,7 +68,7 @@ def get_techinfo(uri):
     return data
 
 def get_derivative_coin_data():
-    page = get_data('https://coinmarketcap.com/tokens/views/all/')
+    page = get_http('https://coinmarketcap.com/tokens/views/all/')
     if page.status_code == 200:
         contents = page.content
         soup = BeautifulSoup(contents, 'html.parser')
@@ -83,8 +86,11 @@ def get_social_and_dev_data():
     result = "could not collect data due to site error"
     data = {}
     for i in xrange(1, 5):
-        sleep(randint(1, 4))
-        page = get_data("https://www.coingecko.com/en?page=" + str(i))
+        sleep(randint(1, 10))
+        if i == 1:
+            page = get_http("https://www.coingecko.com/en")
+        else:
+            page = get_http("https://www.coingecko.com/en?page=" + str(i))
         if page.status_code is not 200:
             logging.warn("failure http status of %s and result: %s", page.status_code, page.content)
             page.raise_for_status()
@@ -118,7 +124,7 @@ def get_social_and_dev_data():
 
 
 def get_ico_data():
-    page = get_data('https://www.coingecko.com/ico?locale=en')
+    page = get_http('https://www.coingecko.com/ico?locale=en')
     ico_dict = {}
     print(page.status_code)
     if page.status_code == 200:

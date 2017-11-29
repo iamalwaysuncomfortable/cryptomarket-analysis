@@ -1,3 +1,11 @@
+#Launch logger
+import log_service.logger_factory as lf
+lf.launch_logging_service()
+
+##Configure environment
+import res.env_config as __config__
+__config__.set_master_config()
+
 import pandas as pd
 import data_scraping.datautils as du
 import data_scraping.scrapingutils as su
@@ -7,11 +15,12 @@ import datetime
 import numpy as np
 import analysis.regression as reg
 import data_scraping.gitservice.interface as I
-import log_service.logger_factory as lf
 from data_scraping.gitservice.data_writing import db_exists
+import os
+print(os.environ.keys())
 
-lf.launch_logging_service()
 
+##Declare initial variables
 cmp_num_columns = ['price_usd', 'market_cap_usd', 'price_usd', '24h_volume_usd', 'price_btc', 'rank', 'total_supply',
                    'percent_change_1h', 'percent_change_24h', 'percent_change_7d']
 cmp_txt_columns = ["id", "name", "symbol"]

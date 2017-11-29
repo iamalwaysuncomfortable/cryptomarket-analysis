@@ -4,29 +4,7 @@ query {
     owner{
       login
     }
-    ref(qualifiedName: "master") {
-      target {
-        ... on Commit {
-          id
-          history(first: 2) {
-            edges {
-              node {
-                oid
-                author {
-                  name
-                  date
-                }
-              }
-              cursor
-            }
-            pageInfo {
-              hasNextPage
-            }
-          }
-        }
-      }
-    }
-    stargazers(last: 2, orderBy: {field: STARRED_AT, direction: ASC}) {
+    stars: stargazers(last: 100, orderBy: {field: STARRED_AT, direction: ASC}) {
       totalCount
       edges {
         starredAt
@@ -37,7 +15,7 @@ query {
         cursor
       }
     }
-    forks(last: 2) {
+    forks(last: 100) {
       totalCount
       edges {
         node {
@@ -50,7 +28,7 @@ query {
         cursor
       }
     }
-    openissues: issues(last: 2, states: OPEN) {
+    openissues: issues(last: 100, states: OPEN) {
       totalCount
       edges {
         node {
@@ -63,7 +41,7 @@ query {
         cursor
       }
     }
-    closedissues: issues(last: 2, states: CLOSED) {
+    closedissues: issues(last: 100, states: CLOSED) {
       totalCount
       edges {
         node {
@@ -72,7 +50,7 @@ query {
           author {
             login
           }
-          timeline(first: 12) {
+          timeline(first: 50) {
             nodes {
               ... on ClosedEvent {
                 createdAt
@@ -86,7 +64,7 @@ query {
         cursor
       }
     }
-    openrequests: pullRequests(last: 2, states: OPEN) {
+    openrequests: pullRequests(last: 100, states: OPEN) {
       totalCount
       edges {
         node {
@@ -99,7 +77,7 @@ query {
         cursor
       }
     }
-    mergedrequests: pullRequests(last: 2, states: MERGED) {
+    mergedrequests: pullRequests(last: 100, states: MERGED) {
       totalCount
       edges {
         node {

@@ -17,7 +17,7 @@ def coin_search(querytext, coin_column, df, start, end):
     for i in xrange(start, end):
         url = "https://www.google.com/search?q=" + coin_column[i] + "+" + querytext
         print "Search URL is %s" %(url)
-        response = su.get_data(url, max_retries=1)
+        response = su.get_http(url, max_retries=1)
         if response.status_code == 200:
             soup = BeautifulSoup(response.content, "html.parser")
             links = soup.find_all('cite', class_="_Rm")
