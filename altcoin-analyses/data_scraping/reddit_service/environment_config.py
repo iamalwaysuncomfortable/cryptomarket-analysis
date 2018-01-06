@@ -64,3 +64,24 @@ def get_reddit_envars(custom_envars = False):
               "make sure environment variables are configured"
         logging.error(msg, exc_info=True)
         raise EnvironmentError(msg)
+
+def get_header_from_envars():
+    varnames = ["REDDIT_APP_ID", "REDDIT_APP_SECRET", "REDDIT_USER", "REDDIT_USER_SECRET", "REDDIT_GRANT_TYPE",
+                "REDDIT_APP_HEADER_AGENT_TYPE", "REDDIT_APP_HEADER_AGENT_DESCRIPTION"]
+    try:
+        _header_type = env.get_envar(varnames[5])
+        _header_value = env.get_envar(varnames[6])
+        _header = {_header_type: _header_value}
+        return _header
+    except:
+        set_default_reddit_envars()
+        try:
+            _header_type = env.get_envar(varnames[5])
+            _header_value = env.get_envar(varnames[6])
+            _header = {_header_type: _header_value}
+            return _header
+        except:
+            msg = "One or more of the required environment variables was not found, " \
+                  "make sure environment variables are configured"
+            logging.error(msg, exc_info=True)
+            raise EnvironmentError(msg)

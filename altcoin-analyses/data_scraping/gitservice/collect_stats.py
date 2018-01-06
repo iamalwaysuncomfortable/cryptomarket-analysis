@@ -4,7 +4,7 @@ import log_service.logger_factory as lf
 from dateutil import parser
 from datetime import datetime
 from data_scraping import datautils as du
-from custom_errors.github_errors import GithubPaginationError, LimitExceededDuringPaginationError, GithubAPIBadQueryError
+from custom_utils.errors.github_errors import GithubPaginationError, LimitExceededDuringPaginationError, GithubAPIBadQueryError
 from data_writing import remaining_query_dump, error_processor, clean_stored_queries, update_db_timestamp
 from api_communication import try_gql_query, get_gsheet_data
 

@@ -1,4 +1,4 @@
-from custom_errors.github_errors import GithubAPIBadQueryError, GithubAPIError
+from custom_utils.errors.github_errors import GithubAPIBadQueryError, GithubAPIError
 import data_scraping.datautils as du
 from data_scraping import scrapingutils as su
 from requests import HTTPError
@@ -6,7 +6,6 @@ import json
 import time
 import log_service.logger_factory as lf
 from res.env_config import get_envar
-from custom_errors.github_errors import GithubAPILimitExceededError
 ##Setup Logger
 logging = lf.get_loggly_logger(__name__)
 

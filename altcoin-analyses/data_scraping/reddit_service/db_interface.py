@@ -5,65 +5,12 @@ import time
 import data_scraping.datautils as du
 logging = lf.get_loggly_logger(__name__)
 
-def get_github_analytics_data(numerical_data=None, nl_data=None):
-    """ query parts from the parts table """
-    query_list = []
-
-    if org:
-        if repo:
-            org_clause = " AND (owner, repo) = ('"+org+"', '"+repo+"')"
-            org_clause_stats = " WHERE (owner, repo) = ('"+org+"', '"+repo+"')"
-        else:
-            org_clause = " AND owner = '"+org+"'"
-            org_clause_stats = " WHERE owner = '"+org+"'"
-    if start:
-        start_date = convert_time_format(start, dt2str=True)
-    if end:
-        end_date = convert_time_format(end, dt2str=True)
-
-    if stars:
-        query_list.append(("stars",
-            "SELECT * FROM devdata.stars WHERE starred_at BETWEEN timestamp '" + start_date + "' and timestamp '" + end_date + "'"+ org_clause +" ORDER BY owner, repo, starred_at DESC"))
-    if forks:
-        query_list.append(
-            ("forks","SELECT * FROM devdata.forks WHERE created_at BETWEEN timestamp '" + start_date + "' and timestamp '" + end_date + "'"+ org_clause +" ORDER BY owner, repo, created_at DESC"))
-    if issues:
-        query_list.append(
-            ("issues", "SELECT * FROM devdata.issues WHERE COALESCE(closed_at, created_at) BETWEEN timestamp '"+ start_date +"' and timestamp '"+ end_date +"'"+ org_clause +" ORDER BY owner, repo, COALESCE(closed_at, created_at) DESC"))
-    if pullrequests:
-        query_list.append(
-            ("pullrequests", "SELECT * FROM devdata.pullrequests WHERE COALESCE(merged_at, created_at) BETWEEN timestamp '"+ start_date +"' and timestamp '"+ end_date +"' ORDER BY COALESCE(merged_at, created_at) DESC"))
-    if commits:
-        query_list.append(
-            ("commits",
-             "SELECT * FROM devdata.commits WHERE committed_at BETWEEN timestamp '" + start_date + "' and timestamp '" + end_date + "' ORDER BY owner, repo, committed_at DESC"))
-    if stats:
-        query_list.append(
-            ("agstats", "SELECT * FROM devdata.agstats"+ org_clause_stats +" ORDER BY _at DESC"))
-    if orgtotals:
-        query_list.append(
-            ("orgstats", "SELECT * FROM devdata.orgstats"))
-
-    logging.info("getting github data from db, start date: %s - end date: %s - data requested: %s %s",
-                  start_date, end_date, [q[0] for q in query_list], org_clause_stats)
-    result = query_database(query_list, num_records, all_records)
-    return result
-
-
-# def get_remaining_queries(since=None):
-#     if since == None:
-#         query = "SELECT * FROM devdata.remainingqueries"
-#     else:
-#         convert_time_format(since, dt2str=True)
-#         query = "SELECT * FROM devdata.remainingqueries WHERE (_at) = ('"+since+"')"
-#     data = query_database([("remainingqueries", query)], num_records=0, all=True)
-#     return data
-
 sql_write_statements = {"subreddit_stats": "INSERT INTO redditdata.subreddit_stats (subreddit, collection_interval, "
                                      "collection_start_time, first_submission, last_submission, "
                                      "submission_interval, comment_score, comment_rate, submission_score, "
-                                     "submission_rate, num_comments, num_commenters, num_submissions, num_submitters)"
-                                     " VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON "
+                                     "submission_rate, num_comments, num_commenters, num_submissions, num_submitters,"
+                                           "subscribers, active_users)"
+                                     " VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON "
                                      "CONFLICT DO NOTHING",
                         "submission_data": "INSERT INTO redditdata.submission_data (s_id, collection_start_time, "
                                            "title, subreddit, submission_score, num_comments, created_at, author) "

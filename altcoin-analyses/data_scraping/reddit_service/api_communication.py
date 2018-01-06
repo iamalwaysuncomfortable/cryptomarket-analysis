@@ -3,7 +3,6 @@ import res.env_config as env
 import data_scraping.scrapingutils as su
 import data_scraping.datautils as du
 import environment_config as ec
-import types
 import os
 from prawtools_fork.stats import SubredditStats
 logging = lf.get_loggly_logger(__name__)
@@ -13,7 +12,7 @@ TOP_VALUES = {'all', 'day', 'month', 'week', 'year'}
 
 class SubredditStatCollector(object):
     def __init__(self, period, subbreddit_list=None, client_id=None, client_secret=None, user=None,
-                 pw=None, use_default_envars=True):
+                 pw=None,header=None,use_default_envars=True):
         if period in TOP_VALUES:
             self.period = period
         else:
@@ -25,7 +24,8 @@ class SubredditStatCollector(object):
         if isinstance(self.subreddit_list, list):
             subreddit = subbreddit_list[0]
             self.sr_analyzer = self.__initialize_reddit_tools_object__(client_id, client_secret,
-                                                                              user,pw, subreddit, use_default_envars)
+                                                                       user,pw, header, subreddit,
+                                                                       use_default_envars)
 
     def get_stats_from_next_subreddit(self):
         if self.subreddit_list == None:
@@ -63,38 +63,40 @@ class SubredditStatCollector(object):
             raise ValueError(error_msg)
 
     @staticmethod
-    def __validate_credentials__(client_id, client_secret, user, pw, use_default_envars):
-        inputs = (client_id, client_secret, user, pw)
+    def __validate_credentials__(client_id, client_secret, user, pw, header, use_default_envars):
+        inputs = (client_id, client_secret, user, pw, header)
         if not any(inputs) and use_default_envars == True:
             ec.set_default_reddit_envars()
             _inputs = ec.get_reddit_envars()
-            return _inputs[0], _inputs[1], _inputs[2], _inputs[3]
+            print(_inputs)
+            return _inputs[0], _inputs[1], _inputs[2], _inputs[3], _inputs[5]
         elif all(inputs) and use_default_envars == False:
             return inputs
         else:
-            logging.error("If not using default config, all inputs must be given")
-            raise ValueError("If not using default config, all inputs must be specified")
+            error_msg = "If not using default config, all inputs must be given, inputs are %s" % str(inputs)
+            logging.error(error_msg)
+            raise ValueError(error_msg)
 
     @staticmethod
-    def __initialize_reddit_tools_object__(client_id, client_secret, user, pw, subbredit, use_default_envars):
+    def __initialize_reddit_tools_object__(client_id, client_secret, user, pw, header, subreddit, use_default_envars):
         if os.path.isfile("praw.ini"):
             os.remove("praw.ini")
-        _client_id, _client_secret, _user, _pw = SubredditStatCollector.__validate_credentials__(
-            client_id, client_secret, user, pw, use_default_envars)
+        _client_id, _client_secret, _user, _pw, _header = SubredditStatCollector.__validate_credentials__(
+            client_id, client_secret, user, pw, header, use_default_envars)
         praw_temp_file = open("praw.ini", "w")
         praw_temp_file.writelines(["[the_site]" + "\n", "client_id=" + _client_id + "\n",
                                    "client_secret=" + _client_secret + "\n", "password=" + _pw + "\n",
                                    "username=" + _user])
         praw_temp_file.close()
-        srs = SubredditStats(subbredit, "the_site", False)
+        srs = SubredditStats(subreddit, "the_site", False, user_agent=_header)
         os.remove("praw.ini")
         return srs
 
     @staticmethod
     def collect_stats_on_single_subreddit(subreddit, period, client_id=None, client_secret=None,
-                                          user=None, pw=None, use_default_envars=True):
-        _client_id, _client_secret, _user, _pw = SubredditStatCollector.__validate_credentials__(
-            client_id, client_secret, user, pw, use_default_envars)
+                                          user=None, pw=None, header=None, use_default_envars=True):
+        _client_id, _client_secret, _user, _pw, _header= SubredditStatCollector.__validate_credentials__(
+            client_id, client_secret, user, pw, header, use_default_envars)
         sr_analyzer = SubredditStatCollector.__initialize_reddit_tools_object__(_client_id, _client_secret,
                                                                               _user,_pw, subreddit)
 

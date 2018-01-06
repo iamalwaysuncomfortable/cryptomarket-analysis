@@ -11,14 +11,15 @@ TOP_VALUES = ("day", "week", "month", "year", "all")
 class RedditDataProcessor(object):
     @staticmethod
     def __validate_and_initialize_inputs__(period, subreddit_list, client_id = None,
-                                           client_secret = None, user = None, pw = None, initialize_new_object=True):
-        credentials = (client_id, client_secret, user, pw)
+                                           client_secret = None, user = None, pw = None, header=None,
+                                           initialize_new_object=True):
+        credentials = (client_id, client_secret, user, pw, header)
         if period in TOP_VALUES and isinstance(subreddit_list, (list, tuple, set)) and \
                 all(isinstance(x, (unicode, str)) for x in subreddit_list):
             if initialize_new_object == True:
                 if all(credentials):
                         ssc = SubredditStatCollector(period, subreddit_list, client_id=client_id,
-                                                     client_secret=client_secret,user=user, pw=pw,
+                                                     client_secret=client_secret,user=user, pw=pw,header=header,
                                                      use_default_envars=False)
                         return ssc, ssc.get_stats_from_next_subreddit()
                 else:
@@ -57,12 +58,13 @@ class RedditDataProcessor(object):
         return numerical_stats, nl_stats, stats_collector.subreddit_list
 
     def __init__(self, period, subreddit_list, stats_collector=None, client_id=None,
-                 client_secret=None, user=None, pw=None):
+                 client_secret=None, user=None, pw=None, header=None):
         if stats_collector != None and isinstance(stats_collector, SubredditStatCollector):
             self.stat_collector, self.stat_generator = stats_collector, stats_collector.get_stats_from_next_subreddit()
         else:
             self.stat_collector, self.stat_generator = \
-                self.__validate_and_initialize_inputs__(period, subreddit_list, client_id, client_secret, user, pw)
+                self.__validate_and_initialize_inputs__(period, subreddit_list, client_id, client_secret, user, pw,
+                                                        header)
         self.nl_stats = []
         self.numerical_stats = []
 
@@ -85,6 +87,8 @@ class RedditDataProcessor(object):
                         sr_data = self.stat_generator.next()
                         rdbi.push_record_with_existing_conn(conn, subreddit_stats=sr_data['numerical_stats'],
                         submission_data=sr_data['natural_language_data']['submissions'])
+                        self.numerical_stats.append(sr_data['numerical_stats'])
+                        self.nl_stats.append(sr_data['natural_language_data']['submissions'])
                     except StopIteration:
                         logging.info("End of results reached, exiting data collection")
                         break

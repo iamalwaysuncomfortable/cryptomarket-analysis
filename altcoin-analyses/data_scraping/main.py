@@ -27,7 +27,7 @@ cmp_txt_columns = ["id", "name", "symbol"]
 measure_filters = {"rank":[0, 300], "total_supply":[2e5,1.2e11], "price_usd":[0., 3e3]}
 
 #Price Stats
-price_data = su.get_coinlist("https://api.coinmarketcap.com/v1/ticker/")
+price_data = su.get_coinlist("https://api.coinmarketcap.com/v1/ticker/?limit=0")
 price_data = du.pre_process_types(price_data,cmp_num_columns, cmp_txt_columns)
 price_data = price_data.set_index("symbol")
 
