@@ -139,13 +139,15 @@ def write_data(inputs):
         conn.commit()
         # close communication with the database
         cur.close()
+        status = "success"
     except (Exception, psycopg2.DatabaseError) as error:
         logging.exception("Error in db write, stack trace is:")
+        status = "fail"
     finally:
         if conn is not None:
             conn.close()
             logging.info('Database connection closed.')
-    return
+    return status
 
 def return_connection():
     conn = None

@@ -38,7 +38,7 @@ def filter_df(df, m_filters = {}, d_filters = {}, d_exclude=False):
                 data = data[(data[key] >= value[0]) & (data[key] <= value[1])]
     return data
 
-##Data Export Methods
+##Data Import/Export Methods
 def dict_tocsv(csv_file,csv_columns,dict_data):
     try:
         with open(csv_file, 'w') as csvfile:
@@ -49,6 +49,19 @@ def dict_tocsv(csv_file,csv_columns,dict_data):
     except IOError as (errno, strerror):
             print("I/O error({0}): {1}".format(errno, strerror))
     return
+
+def many_dicts_tocsv(csv_file, keys, dict_data):
+    with open(csv_file, 'wb') as output_file:
+        dict_writer = csv.DictWriter(output_file, keys)
+        dict_writer.writeheader()
+        dict_writer.writerows(dict_data)
+
+def dict_from_csv(csv_file, keys):
+    with open('coors.csv', mode='r') as infile:
+        reader = csv.reader(csv_file)
+        with open('coors_new.csv', mode='w') as outfile:
+            writer = csv.writer(outfile)
+            mydict = {rows[0]: rows[1] for rows in reader}
 
 def write_json(filename, data, remove_bad_chars=True, ascii=False):
     if remove_bad_chars == True:
@@ -67,6 +80,8 @@ def write_log(filename, data):
             outfile.write("%s\n" % item)
     return
 
+
+
 #Time methods
 def make_utc_aware(time):
     if not isinstance(time, datetime.date):
@@ -83,7 +98,7 @@ def get_time(now=False, months=0, weeks=0, days=0, minutes=0 , seconds=0, utc_st
              give_unicode=False, custom_format=None, input_time=None, add=False):
     if input_time:
         try:
-            nowtime = convert_time_format(input_time, str2dt=True)
+            nowtime = convert_time_format(input_time, str2dt=True, custom_format=custom_format)
         except TypeError:
             raise TypeError("Incorrect time, input must be in str, unicode, or datetime.time format")
     else:
@@ -128,6 +143,24 @@ def convert_time_format(time, str2dt=False, dt2str=False, custom_format=None):
             return time.strftime(custom_format)
         else:
             return time.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+def convert_epoch(time, e2dt=False, e2str=False, str2e=False, dt2e=False, custom_format=None):
+    if sum((e2dt, e2str, str2e, dt2e)) != 1:
+        logging.error("Exactly one conversion option must be selected, no more, no less")
+        raise (RuntimeError("Exactly one conversion option must be selected"))
+    if not isinstance(time, (datetime.date, str, unicode, int, float)):
+        logging.error("Time must be in epoch, datetime, or string/unicode format")
+        raise (RuntimeError)
+    if e2dt and isinstance(time, (int, float)):
+        return pytz.utc.localize(datetime.datetime.utcfromtimestamp(time))
+    elif dt2e and isinstance(time, datetime.date):
+        return (time - get_time(input_time='1970-01-01T00:00:00Z')).total_seconds()
+    elif str2e and isinstance(time, (str, unicode)):
+        dt = convert_time_format(time, str2dt=True, custom_format=custom_format)
+        return (dt - get_time(input_time='1970-01-01T00:00:00Z')).total_seconds()
+    elif e2str and isinstance(time, (int, float)):
+        dt = pytz.utc.localize(datetime.datetime.utcfromtimestamp(time))
+        return convert_time_format(dt, dt2str=True, custom_format=custom_format)
 
 def dt_tostring(dt, give_unicode=False):
     if give_unicode:
@@ -177,6 +210,8 @@ def get_epoch(epoch=None, current=False, cast_int=False, cast_str=False, seconds
         return str(_epoch)
     if cast_int is True and cast_str is True:
         return str(int(_epoch))
+
+
 
 def validate_epoch(date, default_date=None):
     def raise_epoch_error():

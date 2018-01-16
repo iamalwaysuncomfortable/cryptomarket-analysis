@@ -13,7 +13,7 @@ from requests.packages.urllib3.util.retry import Retry
 logging = lf.get_loggly_logger(__name__)
 
 ###Utility Methods
-def read_csv(url):
+def read_csv(url, ):
     with requests.Session() as s:
         s = requests.get(url).content
         cr = pd.read_csv(io.StringIO(s.decode('utf-8')), index_col="symbol")
@@ -141,7 +141,6 @@ def get_static_data():
     categorical_data = read_csv("https://docs.google.com/spreadsheet/ccc?key=1ZkwYGJ1m-X2xJ4vCdaeq-viGecvRnWniLQ5Jyt1D0YM&output=csv")
     replacement_data = read_csv("https://docs.google.com/spreadsheet/ccc?key=10YZu84w7FnjT7-rQEQ57KT7IK2RB9s3SYnSEvaQkW7Y&output=csv")
     return categorical_data, replacement_data
-
 
 
 

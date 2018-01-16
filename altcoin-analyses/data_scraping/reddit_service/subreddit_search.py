@@ -17,7 +17,7 @@ class SearchManager(object):
             raise AttributeError("Search_function must be callable and storage_function must be None or callable")
 
     def reset_data(self, coin_list, error_list):
-        self.coin_list = coin_list
+        self.coin_list = coin_list  
         self.error_list = error_list
 
     def search(self, *args, **kwargs):

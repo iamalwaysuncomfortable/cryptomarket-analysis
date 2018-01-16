@@ -15,6 +15,18 @@ def set_master_config():
         import bb_envar_config
         bb_envar_config.set_env_var()
 
+def set_specific_config(config_name):
+    _platform = platform.system()
+    if _platform == "linux" or _platform == "linux2":
+        print "It's linux"
+    elif _platform == "Darwin":
+        #OSX
+        _path = os.environ["HOME"] + "/bb-env-config"
+        sys.path.append(_path)
+        import bb_envar_config
+        if config_name == "cryptocurrencychart":
+            bb_envar_config.set_cryptocurrencychart_envars()
+
 def append_sys_path(path, relative_from_home_dir=True):
     _platform = platform.system()
     if _platform == "linux" or _platform == "linux2":
