@@ -116,7 +116,7 @@ class CollectPrices(object):
     def validate_completeness_of_single_coin_price_history(self, coin_symbol):
         query = psqll.price_history_one_token(coin_symbol, all_fields=True)
         results = sorted(rw.get_data_from_one_table(query), key=lambda x:x[8], reverse=True)
-        final_price = results[-1][8]
+        final_price = results[-1][3]
         if final_price >= 0:
             return final_price, results
         else:
@@ -129,7 +129,11 @@ class CollectPrices(object):
     def collect_all_coin_history(self):
         symbols_to_scrape = self.check_unrecorded_records()
         for symbol in symbols_to_scrape:
-            self.collect_full_price_history_of_coin(symbol, self.coin_list[symbol]['CoinName'])
+            try:
+                self.collect_full_price_history_of_coin(symbol, self.coin_list[symbol]['CoinName'])
+            except Exception as e:
+                logging.warn("Loop Failed to complete, error message was: %s", e)
+                self.process_queue(task="write_to_db")
 
     def check_unrecorded_records(self):
         sql = price_sql_reads['token_symbols']
@@ -138,7 +142,8 @@ class CollectPrices(object):
         symbols_to_scrape = list(coin_symbols.difference(existing_symbols))
         for symbol in existing_symbols:
             final_price, result = self.validate_completeness_of_single_coin_price_history(symbol)
-            if final_price >= 0:
+            logging.info("final price from symbol %s is %s", symbol, final_price)
+            if final_price > 0:
                 self.coin_data[symbol] = result
                 symbols_to_scrape.append(symbol)
         return symbols_to_scrape
@@ -155,7 +160,7 @@ class CollectPrices(object):
             epoch = int((du.convert_time_format(t0, str2dt=True) - du.get_time(
                 input_time='1970-01-01T00:00:00Z')).total_seconds())
         else:
-            epoch = min(self.coin_data[symbol], key=lambda k: k[8])[8]
+            epoch = min(self.coin_data[symbol], key=lambda k: k[7])[7]
         utcdate = du.convert_epoch(epoch, e2str=True, custom_format='%Y-%m-%d')
         keep_calling = True
         loops = 0
