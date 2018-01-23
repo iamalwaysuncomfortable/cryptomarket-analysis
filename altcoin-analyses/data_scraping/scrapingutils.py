@@ -75,9 +75,9 @@ def get_derivative_coin_data():
         coin_list = soup.tbody.find_all("tr")
         coin_dict = {}
         for coin in coin_list:
-            coin_name = str(coin.find("a").contents[0])
-            platform_name = str(coin["data-platformsymbol"])
-            coin_dict[coin_name] = platform_name
+            coin_symbol = str(coin.find("a").contents[0])
+            platform_symbol = str(coin["data-platformsymbol"])
+            coin_dict[coin_symbol] = platform_symbol
         return coin_dict
     else:
         return "could not collect data due to site error"

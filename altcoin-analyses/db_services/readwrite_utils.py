@@ -6,12 +6,12 @@ def get_data_from_one_table(query):
     return db.make_single_query(query)
 
 def get_data_from_multiple_tables(table_names, table_queries):
-    if len({[len(table_names),len(table_queries)]}) != 1:
+    if len(set([len(table_names),len(table_queries)])) != 1:
         raise ValueError("error: inequally sized inputs data and sql statements must match 1 to 1")
     return db.query_database([list(zip(table_names, table_queries))], num_records=0, all=True)
 
 def push_batch_data(data_tables, sql_write_statements):
-    if len({[len(data_tables),len(sql_write_statements)]}) != 1:
+    if len(set([len(data_tables),len(sql_write_statements)])) != 1:
         raise ValueError("error: inequally sized inputs data and sql statements must match 1 to 1")
     data_to_write = []
     input_data = data_tables
@@ -26,7 +26,7 @@ def push_batch_data(data_tables, sql_write_statements):
     return status
 
 def push_record_with_existing_conn(conn, data_tables, sql_write_statements):
-    if len({[len(data_tables),len(sql_write_statements)]}) != 1:
+    if len(set([len(data_tables),len(sql_write_statements)])) != 1:
         raise ValueError("error: inequally sized inputs data and sql statements must match 1 to 1")
     input_data = data_tables
     i = 0

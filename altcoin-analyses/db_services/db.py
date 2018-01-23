@@ -132,7 +132,7 @@ def write_data(inputs):
         cur = conn.cursor()
         for input in inputs:
             sql, data = input
-            logging.info("%s items with sql write statement %s being executed", sql, len(data))
+            logging.info("%s items with sql write statement %s being executed", len(data), sql)
             for item in data:
                 cur.execute(sql, item)
         logging.info('Changes being committed')
