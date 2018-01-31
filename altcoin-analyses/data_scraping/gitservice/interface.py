@@ -1,17 +1,22 @@
-from log_service.logger_factory import get_loggly_logger, log_exceptions_from_entry_function
+from res.env_config import set_master_config
+set_master_config()
+from log_service.logger_factory import get_loggly_logger, log_exceptions_from_entry_function, launch_logging_service
 from data_scraping.gitservice.collect_stats import collect_repo_data, get_org_repos
 from data_scraping.gitservice.process_data import stage_data, stage_org_totals, count_github_org_stats
 from data_scraping.gitservice.data_writing import push_github_data_to_postgres, get_github_data_from_postgres, \
     get_stored_queries, get_db_timestamp, update_db_timestamp, clean_stored_queries
-from data_scraping.datautils import get_time, convert_time_format
+from data_scraping.datautils import get_time
+
 
 logging = get_loggly_logger(__name__)
+launch_logging_service()
 
 def get_and_store_records_from_API(start=None, existing_data=None):
-    logging.debug("Getting org data & storing it")
+
+    logging.info("Getting org data & storing it")
     org_data = get_org_repos()
     org_stats = stage_org_totals(org_data, get_time(now=True, utc_string=True))
-    logging.debug("Getting repo stats from %s", start)
+    logging.info("Getting repo stats from %s", start)
     data, errors, since = collect_repo_data(start, existing_data)
     stars, forks, issues, pullrequests, repo_stats, commits = stage_data(data, db_format=True)
     push_github_data_to_postgres(stars, forks, issues, pullrequests, repo_stats, org_stats, commits)

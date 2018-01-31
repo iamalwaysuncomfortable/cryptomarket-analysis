@@ -21,7 +21,6 @@ def memoize_with_timeout(obj):
     @functools.wraps(obj)
     def memoizer(*args, **kwargs):
         secs_elapsed = (dt.datetime.now(pytz.UTC) - cache['start_time']).total_seconds()
-        print secs_elapsed
         key = str(args) + str(kwargs)
         if key not in cache:
             cache[key] = obj(*args, **kwargs)

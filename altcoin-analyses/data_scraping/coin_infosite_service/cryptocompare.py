@@ -21,6 +21,12 @@ def get_coin_list(order_by_rank=False):
         logging.warn("Non 200 status returned, returning error response")
         return r
 
+def get_histo_hour(epoch, from_sym, to_sym="USD", limit="2000", hour_resolution="1", exchange="CCCAGG"):
+    call = "https://min-api.cryptocompare.com/data/histohour?fsym="+from_sym+"&tsym="+to_sym+"&limit="+str(limit)+\
+           "&aggregate="+str(hour_resolution)+"&toTs="+str(epoch)+"&e="+exchange
+    result = HTTPh.general_api_call(call, return_json=True)
+    return result
+
 def get_full_snapshot_by_id(coin_id):
     call = "https://www.cryptocompare.com/api/data/coinsnapshotfullbyid/?id=" + str(coin_id)
     result = HTTPh.general_api_call(call, return_json=True)

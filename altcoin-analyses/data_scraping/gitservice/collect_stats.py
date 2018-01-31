@@ -120,6 +120,7 @@ def get_org_repos():
     return repo_data
 
 def page_backwards(org_data, owner, repo, since, num):
+    since = unicode(since.strftime("%Y-%m-%dT%H:%M:%SZ"))
     'If records exist prior to requested date cannot be accessed by a single query, page backwards using cursors'
     logging.debug("pagination beginning for github account: %s - repo: %s", owner, repo)
     alias, depth = gq.generate_alias(repo), 0
@@ -127,6 +128,7 @@ def page_backwards(org_data, owner, repo, since, num):
                   "openrequests": True, "mergedrequests": True}
     cursors = {}
     since_delta_7w = du.get_time(input_time=since, weeks=7)
+    since_delta_7w = unicode(du.convert_time_format(since_delta_7w, dt2str=True))
 
     #Get cursors from last element in list
     def get_cursors(data, _page_state):
@@ -253,7 +255,7 @@ def collect_repo_data(since=None, existing_data=None):
                 status, result = try_gql_query(query, limitcheck=True)
                 if status == "success":
                     try:
-                        result = page_backwards(result, parent_org_name, repo_name, unicode(since.strftime("%Y-%m-%dT%H:%M:%SZ")), 50)
+                        result = page_backwards(result, parent_org_name, repo_name, since, 50)
                         org_stats[org_name].update(result['data'])
                     except LimitExceededDuringPaginationError as e:
                         logging.exception("Limit Exceeded Error, github account: %s - repo %s ",

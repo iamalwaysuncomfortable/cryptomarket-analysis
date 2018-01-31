@@ -119,7 +119,6 @@ def make_single_query(query, num_records=0, all=True):
 
 def write_data(inputs):
     conn = None
-    results = {}
     try:
         # read connection parameters
         params = config()
@@ -131,9 +130,15 @@ def write_data(inputs):
         # create a cursor
         cur = conn.cursor()
         for input in inputs:
+
             sql, data = input
             logging.info("%s items with sql write statement %s being executed", len(data), sql)
+            i = 0
             for item in data:
+                if i < 2:
+                    logging.debug("sql is %s", sql)
+                    logging.debug("data is %s", item)
+                i += 1
                 cur.execute(sql, item)
         logging.info('Changes being committed')
         conn.commit()
@@ -160,7 +165,7 @@ def return_connection():
         conn = psycopg2.connect(**params)
         return conn
     except (Exception, psycopg2.DatabaseError) as error:
-        logging.exception("Error in db write, stack trace is:")
+        logging.exception("Error in db write, stack trace is: %s", error)
         if conn is not None:
             conn.close()
 

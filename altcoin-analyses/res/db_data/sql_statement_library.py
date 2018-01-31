@@ -14,12 +14,32 @@ def price_history_one_token(coin_symbol, all_fields=False, price_pairs = "price_
         query = "SELECT uts, "+price_pairs+" from pricedata.token_prices WHERE coin_symbol = '" +coin_symbol +"'"
     return query
 
+def pair_history_one_pair(from_symbol, to_symbol):
+    return "SELECT * from pricedata.pair_data WHERE from_symbol = '"+from_symbol+"' AND to_symbol = '"+to_symbol+"'"
+
+def pair_histories_start_date_truth(to_symbol="USD", start_date_truth='t'):
+    return "SELECT from_symbol, uts, first_date, to_symbol FROM pricedata.pair_data WHERE to_symbol =" \
+           " '"+to_symbol+"' and first_date = '"+start_date_truth+"'"
+
+
+
 def crypto_price_data_statements(read=True, write=True):
     results = []
-    writes = {"price":"INSERT INTO pricedata.token_prices (coin_symbol, coin_name, price_BTC, price_USD, price_EUR, "
-              "price_CNY, utcdate, uts, source) VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING"}
-    reads = {"get_all":"SELECT * FROM pricedata.token_prices",
-             "token_symbols":"SELECT coin_symbol FROM pricedata.token_prices"}
+    writes = {"price_history":"INSERT INTO pricedata.token_prices (coin_symbol, coin_name, price_BTC, price_USD, price_EUR, "
+              "price_CNY, utcdate, uts, source) VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
+              "pair_history":"INSERT INTO pricedata.pair_data (uts, utc_time, from_symbol, to_symbol, "
+              "from_name, to_name, low, high, _open, _close, first_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+              "ON CONFLICT (uts, from_symbol, to_symbol) DO UPDATE SET (first_date) = (EXCLUDED.first_date)"}
+    reads = {"price_history_get_all":"SELECT * FROM pricedata.token_prices",
+             "price_history_token_symbols":"SELECT coin_symbol FROM pricedata.token_prices",
+             "pair_history_get_all": "SELECT * FROM pricedata.pair_data",
+             "pair_history_token_symbols": "SELECT from_symbol, to_symbol FROM pricedata.pair_data",
+             "min_pair_dates":"SELECT from_symbol, MIN(uts), first_date, to_symbol FROM pricedata.pair_data GROUP BY from_symbol, first_date, to_symbol",
+             "maxn_pair_dates": "SELECT from_symbol, MAX(uts), first_date, to_symbol FROM pricedata.pair_data GROUP BY from_symbol, first_date, to_symbol",
+             "min_price_dates": "SELECT t2.coin_symbol, t2.uts, t2.price_usd FROM (SELECT coin_symbol, min(uts) as uts "
+                                "FROM pricedata.token_prices GROUP BY coin_symbol) t INNER JOIN pricedata.token_prices "
+                                " t2 on t.uts=t2.uts and t.coin_symbol = t2.coin_symbol ORDER BY t2.uts;",
+             "start_dates":"select coin_symbol, start_date_utc from pricedata.static_token_data"}
     if read==True:
         results.append(reads)
     if write==True:

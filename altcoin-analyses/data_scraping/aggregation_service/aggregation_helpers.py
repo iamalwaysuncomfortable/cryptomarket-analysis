@@ -3,6 +3,7 @@ import data_scraping.coin_infosite_service.coinmarketcap as cmc
 import data_scraping.coin_infosite_service.cryptocompare as cc
 import data_scraping.coin_infosite_service.etherscan as es
 import custom_utils.decorators.memoize as mem
+import db_services.readwrite_utils as rw
 from collections import Counter
 
 def return_derivative_token_list():
@@ -30,3 +31,9 @@ def cache_online_data(timeout, desired_output):
     if desired_output == "COIN_LIST":
         coin_symbols = cc.get_coin_list()['Data']
         return coin_symbols
+
+@mem.memoize_with_timeout
+def make_db_call(timeout, sql_call):
+    make_db_call.cache['timeout'] = timeout
+    symbol_query = sql_call
+    return rw.get_data_from_one_table(symbol_query)
