@@ -4,6 +4,7 @@ import log_service.logger_factory as lg
 logging = lg.get_loggly_logger(__name__)
 
 def change_encoding(_types, scope=None):
+    logging.info("Types passed for encoding changes are %s", _types)
     def set_type(_type):
         if _type == "DateTime->String":
             NewDate = psycopg2.extensions.new_type((1082,), 'DATE', psycopg2.STRING)
@@ -14,6 +15,13 @@ def change_encoding(_types, scope=None):
             SmallInt = psycopg2.extensions.new_type((20,), 'INT8', psycopg2.NUMBER)
             logging.debug("Type is %s, scope is %s", _type, scope)
             psycopg2.extensions.register_type(SmallInt, scope)
+        if _type == "Decimal->Float":
+            logging.debug("Type is %s", _type)
+            DEC2FLOAT = psycopg2.extensions.new_type(
+                psycopg2.extensions.DECIMAL.values,
+                'DEC2FLOAT',
+                lambda value, curs: float(value) if value is not None else None)
+            psycopg2.extensions.register_type(DEC2FLOAT)
     if isinstance(_types, str):
         set_type(_types)
     if hasattr(_types, "__iter__"):
@@ -57,7 +65,7 @@ def query_database(query_list, num_records, all, typecasts=None, scope=None):
                 change_encoding(typecasts, cur)
             if scope == "conn":
                 change_encoding(typecasts, conn)
-
+        change_encoding("Decimal->Float", conn)
         # execute a statement
         for query in query_list:
             cur.execute(query[1])
@@ -94,7 +102,7 @@ def make_single_query(query, num_records=0, all=True):
 
         # create a cursor
         cur = conn.cursor()
-
+        change_encoding("Decimal->Float", conn)
         # execute a statement
         cur.execute(query)
         if all == True:
