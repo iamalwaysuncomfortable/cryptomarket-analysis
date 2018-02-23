@@ -384,11 +384,6 @@ class CollectPrices(object):
             epoch = epoch - 86400
             utcdate = du.convert_epoch(epoch, e2str=True, custom_format='%Y-%m-%d')
 
-#coins = cmc.get_coin_list()
-#rankings = [x['symbol'] for x in coins if x['market_cap_usd'] > 0]
-#sql = "SELECT s.uts, s.from_symbol, s.high, t.marketcap FROM pricedata.pair_data s LEFT JOIN pricedata.coin_ranks t ON s.from_symbol = t.symbol WHERE t.marketcap > 0 ORDER BY t.marketcap DESC, s.s"
-#result = rw.push_batch_data([rankings], [sql])
-
 def collect_coin_rank():
     coins = cmc.get_coin_list()
     rankings = [(x['symbol'], x['market_cap_usd']) if x['market_cap_usd'] > 0 else (x['symbol'], 0) for x in coins]
