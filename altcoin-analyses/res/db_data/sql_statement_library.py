@@ -23,7 +23,7 @@ def pair_histories_start_date_truth(to_symbol="USD", start_date_truth='t'):
 
 
 
-def crypto_price_data_statements(read=True, write=True):
+def crypto_price_data_statements(read=False, write=False):
     results = []
     writes = {"price_history":"INSERT INTO pricedata.token_prices (coin_symbol, coin_name, price_BTC, price_USD, price_EUR, "
               "price_CNY, utcdate, uts, source) VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
@@ -39,14 +39,17 @@ def crypto_price_data_statements(read=True, write=True):
              "min_price_dates": "SELECT t2.coin_symbol, t2.uts, t2.price_usd FROM (SELECT coin_symbol, min(uts) as uts "
                                 "FROM pricedata.token_prices GROUP BY coin_symbol) t INNER JOIN pricedata.token_prices "
                                 " t2 on t.uts=t2.uts and t.coin_symbol = t2.coin_symbol ORDER BY t2.uts;",
-             "start_dates":"select coin_symbol, start_date_utc from pricedata.static_token_data"}
+             "start_dates":"select coin_symbol, start_date_utc from pricedata.static_token_data",
+             "price_columns":"SELECT attname AS col FROM   pg_attribute "
+                           "WHERE  attrelid = 'pricedata.token_prices'::regclass "
+                           "AND    attnum > 0 AND    NOT attisdropped ORDER  BY attnum"}
     if read==True:
         results.append(reads)
     if write==True:
         results.append(writes)
     return result_returner(results)
 
-def crypto_categorical_data_statements(read=True,write=True):
+def crypto_categorical_data_statements(read=False,write=False):
     results = []
     if read == True:
         reads = {"token_symbols": "SELECT coin_symbol FROM pricedata.static_token_data"}

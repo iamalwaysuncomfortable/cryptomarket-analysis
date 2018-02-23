@@ -47,110 +47,111 @@ def create_default_df():
     return df, ix, intervals, measures
 
 df, df_ix, intervals, measures  = create_default_df()
-def create_measures(band_multiple=1):
-    for i in range(1, len(df_ix)):
-        logging.info("Index being measured is %s", df_ix[i])
-        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_std"] = df["price_usd"][df_ix[i - 1]:df_ix[i]].ewm(alpha=0.12, min_periods=3).std()
-        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "7d_med_btc"] = df["price_btc"][df_ix[i - 1]:df_ix[i]].rolling(7).median()
-        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "7d_med_usd"] = df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(7).median()
-        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "7d_med_eur"] = df["price_eur"][df_ix[i - 1]:df_ix[i]].rolling(7).median()
-        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "7d_med_cny"] = df["price_cny"][df_ix[i - 1]:df_ix[i]].rolling(7).median()
-        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "price_usd"] = np.where((df['ewma_std'][df_ix[i - 1]:df_ix[i]] >= 60) & (np.abs(df['price_usd'][df_ix[i - 1]:df_ix[i]] / df['7d_med_usd'][df_ix[i - 1]:df_ix[i]]) > 3), df['7d_med_usd'][df_ix[i - 1]:df_ix[i]], df['price_usd'][df_ix[i - 1]:df_ix[i]])
-        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "price_btc"] = np.where((df['ewma_std'][df_ix[i - 1]:df_ix[i]] >= 60) & (np.abs(df['price_usd'][df_ix[i - 1]:df_ix[i]] / df['7d_med_usd'][df_ix[i - 1]:df_ix[i]]) > 3), df['7d_med_btc'][df_ix[i - 1]:df_ix[i]], df['price_btc'][df_ix[i - 1]:df_ix[i]])
-        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "price_cny"] = np.where((df['ewma_std'][df_ix[i - 1]:df_ix[i]] >= 60) & (np.abs(df['price_usd'][df_ix[i - 1]:df_ix[i]] / df['7d_med_usd'][df_ix[i - 1]:df_ix[i]]) > 3), df['7d_med_cny'][df_ix[i - 1]:df_ix[i]], df['price_cny'][df_ix[i - 1]:df_ix[i]])
-        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "price_eur"] = np.where((df['ewma_std'][df_ix[i - 1]:df_ix[i]] >= 60) & (np.abs(df['price_usd'][df_ix[i - 1]:df_ix[i]] / df['7d_med_usd'][df_ix[i - 1]:df_ix[i]]) > 3), df['7d_med_eur'][df_ix[i - 1]:df_ix[i]], df['price_eur'][df_ix[i - 1]:df_ix[i]])
-        fwd = df["price_usd"][df_ix[i - 1]:df_ix[i]].ewm(alpha=0.12, min_periods=3).mean()
-        bwd = df["price_usd"][df_ix[i - 1]:df_ix[i]][::-1].ewm(alpha=0.12,min_periods=3).mean()
-        c = np.vstack((fwd, bwd[::-1]))
-        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma"] = np.mean( c, axis=0 )
-        fwd = df["price_usd"][df_ix[i - 1]:df_ix[i]].ewm(alpha=0.12, min_periods=3).std()
-        bwd = df["price_usd"][df_ix[i - 1]:df_ix[i]][::-1].ewm(alpha=0.12,min_periods=3).std()
-        c = np.vstack((fwd, bwd[::-1]))
-        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_std"] = np.mean( c, axis=0 )
-        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_top"] = df["ewma"][df_ix[i - 1]:df_ix[i]] + df["ewma_std"][df_ix[i - 1]:df_ix[i]]*band_multiple
-        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_low"] = df["ewma"][df_ix[i - 1]:df_ix[i]] - df["ewma_std"][df_ix[i - 1]:df_ix[i]]*band_multiple
-        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_mult"] = (df["ewma"][df_ix[i - 1]:df_ix[i]] + df["ewma_std"][df_ix[i - 1]:df_ix[i]])/df["ewma"][df_ix[i - 1]:df_ix[i]]
-        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "log_returns"] = np.log(df["price_usd"]) - np.log(df["price_usd"].shift(1))
-        int_len = df_ix[i] - df_ix[i-1]
-        for iv in intervals:
-            if iv > int_len:
-                break
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_daily_volatility"] = df["log_returns"][df_ix[i - 1]:df_ix[i]].rolling(iv).std()
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_mean_volatility"] = df["log_returns"][ df_ix[i - 1]:df_ix[i]].rolling(iv).std()
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "open"] = df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv)
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "close"] = df["price_usd"][df_ix[i - 1]:df_ix[i]]
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "low"] = df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "high"] = df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).max()
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "pct_openclose"] = \
-                (df["price_usd"][df_ix[i - 1]:df_ix[i]] - df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv)) /\
-                df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv)
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "pct_openhi"] = \
-                (df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).max() -
-                 df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv)) / df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv)
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "pct_openlo"] = \
-                (df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).min() -
-                 df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv))/df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv)
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "pct_hilo"] = \
-                (df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).max() - df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()) /\
-                df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "pct_hiclose"] = \
-                (df["price_usd"][df_ix[i - 1]:df_ix[i]] - df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).max()) /\
-                df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).max()
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "pct_loclose"] = \
-                (df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).min() - df["price_usd"][df_ix[i - 1]:df_ix[i]]) /\
-                df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "pct_loclose"] = \
-                (df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).min() - df["price_usd"][df_ix[i - 1]:df_ix[i]]) /\
-                df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "idx_high"] = (df["index"][df_ix[i - 1]:df_ix[i]].shift(iv) +pd.rolling_apply(df["price_usd"][df_ix[i - 1]:df_ix[i]], iv, lambda x: pd.Series(x).idxmax()))
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "idx_low"] = (df["index"][df_ix[i - 1]:df_ix[i]].shift(iv) +pd.rolling_apply(df["price_usd"][df_ix[i - 1]:df_ix[i]], iv, lambda x: pd.Series(x).idxmin()))
-            hi_time = df.loc[df[str(iv) + "d_" + "idx_high"][df_ix[i - 1] + iv:df_ix[i]]]
-            hi_time.index = np.arange(df_ix[i - 1] + iv,df_ix[i])
-            lo_time = df.loc[df[str(iv) + "d_" + "idx_low"][df_ix[i - 1] + iv:df_ix[i]]]
-            lo_time.index = np.arange(df_ix[i - 1] + iv,df_ix[i])
-            df.loc[df.index[df_ix[i - 1] + iv:df_ix[i]], str(iv) + "d_" + "time_hi"] = hi_time['uts']
-            df.loc[df.index[df_ix[i - 1] + iv:df_ix[i]], str(iv) + "d_" + "time_lo"] = lo_time['uts']
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "days_openhi"] = (df[str(iv) + "d_" + "time_hi"] - df["uts"][df_ix[i - 1]:df_ix[i]].shift(iv))/86400
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "days_openlo"] = (df[str(iv) + "d_" + "time_lo"] - df["uts"][df_ix[i - 1]:df_ix[i]].shift(iv))/86400
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "days_hiclose"] = (df["uts"][df_ix[i - 1]:df_ix[i]] - df[str(iv) + "d_" + "time_hi"])/86400
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "days_loclose"] = (df["uts"][df_ix[i - 1]:df_ix[i]] - df[str(iv) + "d_" + "time_lo"])/86400
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_open"] = df["ewma"][df_ix[i - 1]:df_ix[i]].shift(iv)
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_close"] = df["ewma"][df_ix[i - 1]:df_ix[i]]
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_low"] = df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_high"] = df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).max()
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "emwa_pct_openclose"] = \
-                (df["ewma"][df_ix[i - 1]:df_ix[i]] - df["ewma"][df_ix[i - 1]:df_ix[i]].shift(iv)) /\
-                df["ewma"][df_ix[i - 1]:df_ix[i]].shift(iv)
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_pct_openhi"] = \
-                (df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).max() -
-                 df["ewma"][df_ix[i - 1]:df_ix[i]].shift(iv)) / df["ewma"][df_ix[i - 1]:df_ix[i]].shift(iv)
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_pct_openlo"] = \
-                (df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).min() -
-                 df["ewma"][df_ix[i - 1]:df_ix[i]].shift(iv))/df["ewma"][df_ix[i - 1]:df_ix[i]].shift(iv)
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_pct_hilo"] = \
-                (df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).max() - df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()) /\
-                df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_pct_hiclose"] = \
-                (df["ewma"][df_ix[i - 1]:df_ix[i]] - df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).max()) /\
-                df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).max()
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_pct_loclose"] = \
-                (df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).min() - df["ewma"][df_ix[i - 1]:df_ix[i]]) /\
-                df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_pct_loclose"] = \
-                (df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).min() - df["ewma"][df_ix[i - 1]:df_ix[i]]) /\
-                df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_idx_high"] = (df["index"][df_ix[i - 1]:df_ix[i]].shift(iv) +pd.rolling_apply(df["ewma"][df_ix[i - 1]:df_ix[i]], iv, lambda x: pd.Series(x).idxmax()))
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_idx_low"] = (df["index"][df_ix[i - 1]:df_ix[i]].shift(iv) +pd.rolling_apply(df["ewma"][df_ix[i - 1]:df_ix[i]], iv, lambda x: pd.Series(x).idxmin()))
-            hi_time_ewma = df.loc[df[str(iv) + "d_" + "ewma_idx_high"][df_ix[i - 1] + iv:df_ix[i]]]
-            hi_time_ewma.index = np.arange(df_ix[i - 1] + iv,df_ix[i])
-            lo_time_ewma = df.loc[df[str(iv) + "d_" + "ewma_idx_low"][df_ix[i - 1] + iv:df_ix[i]]]
-            lo_time_ewma.index = np.arange(df_ix[i - 1] + iv,df_ix[i])
-            df.loc[df.index[df_ix[i - 1] + iv:df_ix[i]], str(iv) + "d_" + "ewma_time_hi"] = hi_time_ewma['uts']
-            df.loc[df.index[df_ix[i - 1] + iv:df_ix[i]], str(iv) + "d_" + "ewma_time_lo"] = lo_time_ewma['uts']
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "days_openhi_ewma"] = (df[str(iv) + "d_" + "ewma_time_hi"] - df["uts"][df_ix[i - 1]:df_ix[i]].shift(iv))/86400
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "days_openlo_ewma"] = (df[str(iv) + "d_" + "ewma_time_lo"] - df["uts"][df_ix[i - 1]:df_ix[i]].shift(iv))/86400
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "days_hiclose_ewma"] = (df["uts"][df_ix[i - 1]:df_ix[i]] - df[str(iv) + "d_" + "ewma_time_hi"])/86400
-            df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "days_loclose_ewma"] = (df["uts"][df_ix[i - 1]:df_ix[i]] - df[str(iv) + "d_" + "ewma_time_lo"])/86400
+#def create_measures(band_multiple=1):
+band_multiple = 1
+for i in range(1, len(df_ix)):
+    logging.info("Index being measured is %s", df_ix[i])
+    df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_std"] = df["price_usd"][df_ix[i - 1]:df_ix[i]].ewm(alpha=0.12, min_periods=3).std()
+    df.loc[df.index[df_ix[i - 1]:df_ix[i]], "7d_med_btc"] = df["price_btc"][df_ix[i - 1]:df_ix[i]].rolling(7).median()
+    df.loc[df.index[df_ix[i - 1]:df_ix[i]], "7d_med_usd"] = df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(7).median()
+    df.loc[df.index[df_ix[i - 1]:df_ix[i]], "7d_med_eur"] = df["price_eur"][df_ix[i - 1]:df_ix[i]].rolling(7).median()
+    df.loc[df.index[df_ix[i - 1]:df_ix[i]], "7d_med_cny"] = df["price_cny"][df_ix[i - 1]:df_ix[i]].rolling(7).median()
+    df.loc[df.index[df_ix[i - 1]:df_ix[i]], "price_usd"] = np.where((df['ewma_std'][df_ix[i - 1]:df_ix[i]] >= 60) & (np.abs(df['price_usd'][df_ix[i - 1]:df_ix[i]] / df['7d_med_usd'][df_ix[i - 1]:df_ix[i]]) > 3), df['7d_med_usd'][df_ix[i - 1]:df_ix[i]], df['price_usd'][df_ix[i - 1]:df_ix[i]])
+    df.loc[df.index[df_ix[i - 1]:df_ix[i]], "price_btc"] = np.where((df['ewma_std'][df_ix[i - 1]:df_ix[i]] >= 60) & (np.abs(df['price_usd'][df_ix[i - 1]:df_ix[i]] / df['7d_med_usd'][df_ix[i - 1]:df_ix[i]]) > 3), df['7d_med_btc'][df_ix[i - 1]:df_ix[i]], df['price_btc'][df_ix[i - 1]:df_ix[i]])
+    df.loc[df.index[df_ix[i - 1]:df_ix[i]], "price_cny"] = np.where((df['ewma_std'][df_ix[i - 1]:df_ix[i]] >= 60) & (np.abs(df['price_usd'][df_ix[i - 1]:df_ix[i]] / df['7d_med_usd'][df_ix[i - 1]:df_ix[i]]) > 3), df['7d_med_cny'][df_ix[i - 1]:df_ix[i]], df['price_cny'][df_ix[i - 1]:df_ix[i]])
+    df.loc[df.index[df_ix[i - 1]:df_ix[i]], "price_eur"] = np.where((df['ewma_std'][df_ix[i - 1]:df_ix[i]] >= 60) & (np.abs(df['price_usd'][df_ix[i - 1]:df_ix[i]] / df['7d_med_usd'][df_ix[i - 1]:df_ix[i]]) > 3), df['7d_med_eur'][df_ix[i - 1]:df_ix[i]], df['price_eur'][df_ix[i - 1]:df_ix[i]])
+    fwd = df["price_usd"][df_ix[i - 1]:df_ix[i]].ewm(alpha=0.12, min_periods=3).mean()
+    bwd = df["price_usd"][df_ix[i - 1]:df_ix[i]][::-1].ewm(alpha=0.12,min_periods=3).mean()
+    c = np.vstack((fwd, bwd[::-1]))
+    df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma"] = np.mean( c, axis=0 )
+    fwd = df["price_usd"][df_ix[i - 1]:df_ix[i]].ewm(alpha=0.12, min_periods=3).std()
+    bwd = df["price_usd"][df_ix[i - 1]:df_ix[i]][::-1].ewm(alpha=0.12,min_periods=3).std()
+    c = np.vstack((fwd, bwd[::-1]))
+    df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_std"] = np.mean( c, axis=0 )
+    df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_top"] = df["ewma"][df_ix[i - 1]:df_ix[i]] + df["ewma_std"][df_ix[i - 1]:df_ix[i]]*band_multiple
+    df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_low"] = df["ewma"][df_ix[i - 1]:df_ix[i]] - df["ewma_std"][df_ix[i - 1]:df_ix[i]]*band_multiple
+    df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_mult"] = (df["ewma"][df_ix[i - 1]:df_ix[i]] + df["ewma_std"][df_ix[i - 1]:df_ix[i]])/df["ewma"][df_ix[i - 1]:df_ix[i]]
+    df.loc[df.index[df_ix[i - 1]:df_ix[i]], "log_returns"] = np.log(df["price_usd"]) - np.log(df["price_usd"].shift(1))
+    int_len = df_ix[i] - df_ix[i-1]
+    for iv in intervals:
+        if iv > int_len:
+            break
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_daily_volatility"] = df["log_returns"][df_ix[i - 1]:df_ix[i]].rolling(iv).std()
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_mean_volatility"] = df["log_returns"][ df_ix[i - 1]:df_ix[i]].rolling(iv).std()
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "open"] = df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv)
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "close"] = df["price_usd"][df_ix[i - 1]:df_ix[i]]
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "low"] = df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "high"] = df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).max()
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "pct_openclose"] = \
+            (df["price_usd"][df_ix[i - 1]:df_ix[i]] - df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv)) /\
+            df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv)
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "pct_openhi"] = \
+            (df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).max() -
+             df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv)) / df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv)
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "pct_openlo"] = \
+            (df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).min() -
+             df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv))/df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv)
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "pct_hilo"] = \
+            (df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).max() - df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()) /\
+            df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "pct_hiclose"] = \
+            (df["price_usd"][df_ix[i - 1]:df_ix[i]] - df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).max()) /\
+            df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).max()
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "pct_loclose"] = \
+            (df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).min() - df["price_usd"][df_ix[i - 1]:df_ix[i]]) /\
+            df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "pct_loclose"] = \
+            (df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).min() - df["price_usd"][df_ix[i - 1]:df_ix[i]]) /\
+            df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "idx_high"] = (df["index"][df_ix[i - 1]:df_ix[i]].shift(iv) +pd.rolling_apply(df["price_usd"][df_ix[i - 1]:df_ix[i]], iv, lambda x: pd.Series(x).idxmax()))
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "idx_low"] = (df["index"][df_ix[i - 1]:df_ix[i]].shift(iv) +pd.rolling_apply(df["price_usd"][df_ix[i - 1]:df_ix[i]], iv, lambda x: pd.Series(x).idxmin()))
+        hi_time = df.loc[df[str(iv) + "d_" + "idx_high"][df_ix[i - 1] + iv:df_ix[i]]]
+        hi_time.index = np.arange(df_ix[i - 1] + iv,df_ix[i])
+        lo_time = df.loc[df[str(iv) + "d_" + "idx_low"][df_ix[i - 1] + iv:df_ix[i]]]
+        lo_time.index = np.arange(df_ix[i - 1] + iv,df_ix[i])
+        df.loc[df.index[df_ix[i - 1] + iv:df_ix[i]], str(iv) + "d_" + "time_hi"] = hi_time['uts']
+        df.loc[df.index[df_ix[i - 1] + iv:df_ix[i]], str(iv) + "d_" + "time_lo"] = lo_time['uts']
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "days_openhi"] = (df[str(iv) + "d_" + "time_hi"] - df["uts"][df_ix[i - 1]:df_ix[i]].shift(iv))/86400
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "days_openlo"] = (df[str(iv) + "d_" + "time_lo"] - df["uts"][df_ix[i - 1]:df_ix[i]].shift(iv))/86400
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "days_hiclose"] = (df["uts"][df_ix[i - 1]:df_ix[i]] - df[str(iv) + "d_" + "time_hi"])/86400
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "days_loclose"] = (df["uts"][df_ix[i - 1]:df_ix[i]] - df[str(iv) + "d_" + "time_lo"])/86400
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_open"] = df["ewma"][df_ix[i - 1]:df_ix[i]].shift(iv)
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_close"] = df["ewma"][df_ix[i - 1]:df_ix[i]]
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_low"] = df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_high"] = df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).max()
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "emwa_pct_openclose"] = \
+            (df["ewma"][df_ix[i - 1]:df_ix[i]] - df["ewma"][df_ix[i - 1]:df_ix[i]].shift(iv)) /\
+            df["ewma"][df_ix[i - 1]:df_ix[i]].shift(iv)
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_pct_openhi"] = \
+            (df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).max() -
+             df["ewma"][df_ix[i - 1]:df_ix[i]].shift(iv)) / df["ewma"][df_ix[i - 1]:df_ix[i]].shift(iv)
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_pct_openlo"] = \
+            (df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).min() -
+             df["ewma"][df_ix[i - 1]:df_ix[i]].shift(iv))/df["ewma"][df_ix[i - 1]:df_ix[i]].shift(iv)
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_pct_hilo"] = \
+            (df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).max() - df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()) /\
+            df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_pct_hiclose"] = \
+            (df["ewma"][df_ix[i - 1]:df_ix[i]] - df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).max()) /\
+            df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).max()
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_pct_loclose"] = \
+            (df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).min() - df["ewma"][df_ix[i - 1]:df_ix[i]]) /\
+            df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_pct_loclose"] = \
+            (df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).min() - df["ewma"][df_ix[i - 1]:df_ix[i]]) /\
+            df["ewma"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_idx_high"] = (df["index"][df_ix[i - 1]:df_ix[i]].shift(iv) +pd.rolling_apply(df["ewma"][df_ix[i - 1]:df_ix[i]], iv, lambda x: pd.Series(x).idxmax()))
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "ewma_idx_low"] = (df["index"][df_ix[i - 1]:df_ix[i]].shift(iv) +pd.rolling_apply(df["ewma"][df_ix[i - 1]:df_ix[i]], iv, lambda x: pd.Series(x).idxmin()))
+        hi_time_ewma = df.loc[df[str(iv) + "d_" + "ewma_idx_high"][df_ix[i - 1] + iv:df_ix[i]]]
+        hi_time_ewma.index = np.arange(df_ix[i - 1] + iv,df_ix[i])
+        lo_time_ewma = df.loc[df[str(iv) + "d_" + "ewma_idx_low"][df_ix[i - 1] + iv:df_ix[i]]]
+        lo_time_ewma.index = np.arange(df_ix[i - 1] + iv,df_ix[i])
+        df.loc[df.index[df_ix[i - 1] + iv:df_ix[i]], str(iv) + "d_" + "ewma_time_hi"] = hi_time_ewma['uts']
+        df.loc[df.index[df_ix[i - 1] + iv:df_ix[i]], str(iv) + "d_" + "ewma_time_lo"] = lo_time_ewma['uts']
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "days_openhi_ewma"] = (df[str(iv) + "d_" + "ewma_time_hi"] - df["uts"][df_ix[i - 1]:df_ix[i]].shift(iv))/86400
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "days_openlo_ewma"] = (df[str(iv) + "d_" + "ewma_time_lo"] - df["uts"][df_ix[i - 1]:df_ix[i]].shift(iv))/86400
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "days_hiclose_ewma"] = (df["uts"][df_ix[i - 1]:df_ix[i]] - df[str(iv) + "d_" + "ewma_time_hi"])/86400
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "days_loclose_ewma"] = (df["uts"][df_ix[i - 1]:df_ix[i]] - df[str(iv) + "d_" + "ewma_time_lo"])/86400
 
 
 def plot_data(df, plot_type, i, d=7):
@@ -167,4 +168,6 @@ def plot_data(df, plot_type, i, d=7):
     if plot_type == "daily_volatility":
         plt.plot(df["utcdate"][df_ix[i - 1]:df_ix[i]], df[str(d) + "d_daily_volatility"][df_ix[i - 1]:df_ix[i]], "--r")
         plt.show()
+
+plot_data(df, "daily_volatility", 1)
 
