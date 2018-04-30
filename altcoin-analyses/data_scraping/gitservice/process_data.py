@@ -1,9 +1,7 @@
-from data_scraping.gitservice.db_interface import get_github_analytics_data
-from data_scraping.datautils import get_time
 import pandas as pd
-from data_scraping.datautils import convert_time_format
 
 import log_service.logger_factory as lf
+from custom_utils.datautils import convert_time_format
 
 ##Setup Logger
 logging = lf.get_loggly_logger(__name__)

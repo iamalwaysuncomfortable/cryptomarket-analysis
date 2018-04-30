@@ -1,8 +1,10 @@
-import log_service.logger_factory as lf
+import time
+
+import custom_utils.datautils as du
 import db_services.db as db
 import db_services.query_builder as qb
-import time
-import data_scraping.datautils as du
+import log_service.logger_factory as lf
+
 logging = lf.get_loggly_logger(__name__)
 
 sql_write_statements = {"subreddit_stats": "INSERT INTO redditdata.subreddit_stats (subreddit, collection_interval, "

@@ -1,9 +1,10 @@
 import types
-import data_scraping.datautils as du
+
 import data_scraping.reddit_service.db_interface as rdbi
 import db_services.db as db
 import log_service.logger_factory as lf
 from api_communication import SubredditStatCollector
+
 logging = lf.get_loggly_logger(__name__)
 
 TOP_VALUES = ("day", "week", "month", "year", "all")

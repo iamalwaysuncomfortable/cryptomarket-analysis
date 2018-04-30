@@ -1,10 +1,12 @@
+import os
+
+import custom_utils.datautils as du
+import data_scraping.scrapingutils as su
+import environment_config as ec
 import log_service.logger_factory as lf
 import res.env_config as env
-import data_scraping.scrapingutils as su
-import data_scraping.datautils as du
-import environment_config as ec
-import os
 from prawtools_fork.stats import SubredditStats
+
 logging = lf.get_loggly_logger(__name__)
 
 

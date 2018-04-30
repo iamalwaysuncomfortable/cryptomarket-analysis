@@ -1,7 +1,8 @@
+import custom_utils.datautils as du
 import data_scraping.aggregation_service.aggregation_helpers as ah
-import data_scraping.datautils as du
 import db_services.readwrite_utils as rw
 import log_service.logger_factory as lf
+
 logging = lf.get_loggly_logger(__name__)
 lf.launch_logging_service()
 

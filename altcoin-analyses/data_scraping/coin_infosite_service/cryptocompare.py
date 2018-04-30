@@ -1,6 +1,7 @@
-import res.env_config as ec
+import custom_utils.HTTP_helpers as HTTPh
 import log_service.logger_factory as lf
-import data_scraping.HTTP_helpers as HTTPh
+import res.env_config as ec
+
 logging = lf.get_loggly_logger(__name__)
 ec.set_specific_config("cryptocurrencychart")
 

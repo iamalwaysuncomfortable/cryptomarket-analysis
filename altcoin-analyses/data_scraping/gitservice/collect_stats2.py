@@ -11,10 +11,24 @@ from custom_utils.errors.github_errors import GithubPaginationError, LimitExceed
     GithubAPIBadQueryError
 from data_writing import remaining_query_dump, error_processor
 
-###Get logger
 logging = lf.get_loggly_logger(__name__)
 
-###Analytics data collection methods
+def create_collection_objects(existing_data=None, since=None, return_org_data=False):
+    if existing_data == None:
+        multiple_repo_list, single_repo_list = get_repo_lists(multiple_only=True), get_repo_lists(single_only=True)
+        org_data = get_org_repos(single_repo_list, multiple_repo_list)
+        _since = since
+    else:
+        _since = existing_data["records_start_date"]
+        org_data = existing_data
+    if return_org_data == True:
+        return collect_repo_data(org_data, _since), org_data
+    else:
+        return collect_repo_data(org_data, _since)
+
+
+
+###Get Authoritative List of Github Repos Associated with a Coin
 def get_repo_lists(single_only=False, multiple_only=False):
     'get list of coin github accounts, sort by single repo or multiple repo accounts'
     repo_list = get_gsheet_data("https://docs.google.com/spreadsheet/ccc?key=1la_UVV4c3YLnvTesLTEq-F1wxL9Rtd2sZkdyq9OBMB4&output=csv")
@@ -23,20 +37,19 @@ def get_repo_lists(single_only=False, multiple_only=False):
     if multiple_only == True: return repo_list[repo_list["single_repo"] == False]
     return repo_list
 
+###Get all repos under an organization
 def paginate_repos(input_data, org_list, depth=0):
     'Use graphql to parse the repos within each organization'
     query, cursors = "", {}
-    orgs_to_paginate = [(name, data) for name, data in input_data['data'].items()
-                        if len(data['repositories']['edges']) == 100]
+    orgs_to_paginate = [(name, data) for name, data in input_data['data'].items() if len(data['repositories']['edges']) == 100]
     if not orgs_to_paginate: return input_data
 
     #Build query graphql query to paginate orgs
     for org in orgs_to_paginate:
         name, org_data = org
-        name = name.replace("_", "-")
         cursor = org_data['repositories']['edges'][99]['cursor']
         cursors[name] = cursor
-        account_type = org_list[org_list["owner"] == name.replace("_","-")].iloc[0]['account_type']
+        account_type = org_list[org_list["owner"] == name].iloc[0]['account_type']
         query += gq.single_org_query(name,account_type,limit=100, completequery=False,pagination=True, cursor=cursor)
     query = "query { " + query + " }"
 
@@ -50,7 +63,7 @@ def paginate_repos(input_data, org_list, depth=0):
                                                                 paginated_result['data'][name]['repositories']['edges']
         return input_data
     else:
-        logging.warn("repo pagination failed with cursors: %s and result: %s", cursors, result)
+        logging.warn("repo pagination failed with query: %s cursors: %s and result: %s", query, cursors, result)
         raise GithubPaginationError(result[0], result[1], result, query, cursors,depth)
 
 def subdivide_queries(multi_repo_list, recs_per_call=20):
@@ -72,11 +85,11 @@ def subdivide_queries(multi_repo_list, recs_per_call=20):
             querylist.append(gq.multiple_org_query(sublist, limit = 100))
     return querylist
 
-def get_org_repos():
+def get_org_repos(single_repo_list, multiple_repo_list):
     'Get all github repositories under a coin github account'
-    multiple_repo_list, single_repo_list = get_repo_lists(multiple_only=True), get_repo_lists(single_only=True)
-    multiple_repo_list =
-    repo_data, multi_querylist, repo_count = {}, subdivide_queries(multiple_repo_list), 0
+
+    repo_data, repo_count = {}, 0
+    multi_querylist = subdivide_queries(multiple_repo_list)
 
     #Get all repos from coin githubs from github api with more than 1 repo
     for query in multi_querylist:
@@ -111,11 +124,11 @@ def get_org_repos():
                           result, query, status, exc_info=True)
             raise GithubAPIBadQueryError(result, query, status)
 
-    repo_count += sum(git_account['repositories']['totalCount'] for name, git_account in repo_data.iteritems())
+    repo_count += sum(git_account['repositories']['totalCount'] for name, git_account in repo_data.items())
     logging.info("%s github accounts collected with %s total repos", len(repo_data.keys()), repo_count)
-    du.write_json("repo_list_" + str(datetime.now()).replace(" ", "_"), repo_data)
     return repo_data
 
+###Get repo Statistics
 def page_backwards(org_data, owner, repo, since, num):
     since = unicode(since.strftime("%Y-%m-%dT%H:%M:%SZ"))
     'If records exist prior to requested date cannot be accessed by a single query, page backwards using cursors'
@@ -203,30 +216,21 @@ def page_backwards(org_data, owner, repo, since, num):
 
     return org_data
 
-def collect_repo_data(since=None, existing_data=None):
+def collect_repo_data(data, since):
     'Collect statistics on cryptocoin github accounts'
-    logging.info("Beggining collection of stats on repos in Github Accounts from Github GraphQL API")
-    if existing_data:
-        since = existing_data["records_start_date"]
-        repo_data = existing_data
-        logging.info("existing data being used, starting from date %s, # orgs %s, # repos %s, orgs being updated %s",
-                     since, len(repo_data.keys()), sum(len(v.keys()) for k, v in repo_data),repo_data.keys())
-    else:
-        repo_data = get_org_repos()
-        if since == None:
-            logging.error("Start date not specified in repo stat collection, error will be thrown")
-            raise ValueError("Start date not specified for logging, must specify start date")
-    until = du.get_time(now=True, utc_string=True)
-    result_set = {}
-    limit_exceeded, resetAt, unsearched_set, error_log = (False, "", {}, [])
-    result_set["records_start_date"], result_set["records_end_date"], = since, until
-    since, until = du.convert_time_format(since, str2dt=True), du.convert_time_format(until, str2dt=True)
+    if since == None:
+        raise ValueError("Start date not specified for logging, must specify start date")
+
+    ##Ensure time is in correct format
+    since, until = du.convert_time_format(since, str2dt=True), du.get_time(now=True)
+    limit_exceeded, resetAt, unsearched_set, result_set, error_log = (False, "", {}, {}, [])
+    result_set["records_start_date"] = du.convert_time_format(since, dt2str=True)
+    result_set["records_end_date"] = du.convert_time_format(until, dt2str=True)
 
     #Get data on accounts with more than one repo
-    for alias, org in repo_data.iteritems():
+    for alias, org in data.items():
         if alias == "records_start_date" or alias == "records_end_date": continue
-        org_name = org["login"]
-        org_alias = alias
+        org_name, org_alias = org["login"], alias
         repos_to_search, repos, org_stats, org_errors = ([], org['repositories']['edges'], {org_name: {}}, {org_name: {}})
         for repo in repos:
             updated_at = parser.parse(repo['node']['updatedAt'])
@@ -238,17 +242,15 @@ def collect_repo_data(since=None, existing_data=None):
                 repos_to_search.append(repo)
         if not repos_to_search:
             continue
-        if limit_exceeded and repos_to_search:
+
+        if limit_exceeded == True and len(repos_to_search) > 0:
             unsearched_set[org_alias] = {"repositories":{"edges":repos_to_search}, "login":org_name}
         else:
             idx = 0
             for repo in repos_to_search:
                 parent_org_name, repo_name = (repo['node']['owner']['login'], repo['node']['name'])
                 default_branch = repo['node']['defaultBranchRef']['name']
-                logging.debug("acquiring data for github account: %s , repo: %s , default branch is %s",
-                              parent_org_name, repo_name, default_branch)
                 query, repo_alias = gq.repo_query(parent_org_name, repo_name, 50, 50, 50, 50, 50, full_query=True, create_alias=True, default_branch=default_branch)
-
                 status, result = try_gql_query(query, limitcheck=True)
                 if status == "success":
                     try:
@@ -279,22 +281,19 @@ def collect_repo_data(since=None, existing_data=None):
             error_log.append(org_errors)
         if bool(org_stats[org_name]):
             result_set.update(org_stats)
+        if len(result_set) > 10 and limit_exceeded == False:
+            error_processor(collect_repo_data.__name__, error_log)
+            yield result_set
+            del result_set
+            result_set = {}
+            result_set["records_start_date"] = du.convert_time_format(since, dt2str=True)
+            result_set["records_end_date"] = du.convert_time_format(until, dt2str=True)
 
     if limit_exceeded == True:
-        logging.warn("Limit exceeded, exiting api data collection, unsearched data is %s, errors are %s query was searching from %s reset at %s",
-                     unsearched_set, error_log, since, resetAt)
+        logging.warn("Limit exceeded, exiting api data collection, api resets at %s", resetAt)
         remaining_query_dump(since, unsearched_set)
         error_processor(collect_repo_data.__name__, error_log)
-        du.write_json("org_statistics_" + du.get_time(now=True, utc_string=True), result_set)
-        return result_set, error_log
-
-    try:
-        num_repos = sum(len(git_account.keys()) for name, git_account in result_set.iteritems() if not isinstance(git_account, str))
-        logging.info("repo activity data collection from API finished, errors are %s", error_log)
-        logging.info("number of git accounts returning data is %s , number of repos is %s number of git accounts with errors is %s",
-            len(result_set.keys()), num_repos, len(error_log))
-    except:
-        pass
-    error_processor(collect_repo_data.__name__, error_log)
-    du.write_json("org_statistics_" + du.get_time(now=True, utc_string=True), result_set)
-    return result_set, error_log, since
+        yield result_set
+    else:
+        error_processor(collect_repo_data.__name__, error_log)
+        yield result_set

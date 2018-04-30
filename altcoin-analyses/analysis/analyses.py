@@ -1,8 +1,9 @@
-import analysis.regression as reg
-import data_scraping.scrapingutils as su
-import data_scraping.datautils as du
 import numpy as np
 import pylab as plt
+
+import analysis.regression as reg
+import custom_utils.datautils as du
+import data_scraping.scrapingutils as su
 
 #5e4 --> 1.5e8, 1.5e8 --> 1e9, 1e9 --> 1.1e10, 1.1e10 --> 4e10, 4e10 --> 1.2e11, 1.2e11 --> 3e11
 #measure_filters = {"rank":[0, 500], "total_supply":[5e4,1.2e7], "price_usd":[0., 3e3]}

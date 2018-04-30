@@ -1,11 +1,14 @@
-import data_scraping.HTTP_helpers as HTTPh
 from bs4 import BeautifulSoup
+
+import custom_utils.HTTP_helpers as HTTPh
 import log_service.logger_factory as lf
+
 logging = lf.get_loggly_logger(__name__)
 
 def get_name_symbol_lookup_table(lookup_by_name=False, lookup_by_symbol=False):
     master_list = get_coin_list()
     result_list = []
+
     if lookup_by_name == True:
         result_list.append({entry['name']:entry['symbol'] for entry in master_list})
     elif lookup_by_symbol == True:

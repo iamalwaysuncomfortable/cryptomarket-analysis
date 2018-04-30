@@ -1,5 +1,6 @@
+import custom_utils.datautils as du
 import log_service.logger_factory as lf
-import data_scraping.datautils as du
+
 logging = lf.get_loggly_logger(__name__)
 
 

@@ -1,8 +1,10 @@
-import res.env_config as ec
-import data_scraping.scrapingutils as su
-import data_scraping.datautils as du
-import log_service.logger_factory as lf
 import os
+
+import custom_utils.datautils as du
+import data_scraping.scrapingutils as su
+import log_service.logger_factory as lf
+import res.env_config as ec
+
 lf.launch_logging_service()
 logging = lf.get_loggly_logger(__name__)
 ec.set_specific_config("cryptocurrencychart")

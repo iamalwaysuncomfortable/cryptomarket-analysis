@@ -1,11 +1,14 @@
-from custom_utils.errors.github_errors import GithubAPIBadQueryError, GithubAPIError
-import data_scraping.datautils as du
-from data_scraping import scrapingutils as su
-from requests import HTTPError
 import json
 import time
+
+from requests import HTTPError
+
+import custom_utils.datautils as du
 import log_service.logger_factory as lf
+from custom_utils.errors.github_errors import GithubAPIBadQueryError, GithubAPIError
+from data_scraping import scrapingutils as su
 from res.env_config import get_envar
+
 ##Setup Logger
 logging = lf.get_loggly_logger(__name__)
 
@@ -46,7 +49,7 @@ def post_gql_query(gql, secret_):
 
 def try_gql_query(query, limitcheck=True, cost=100, wait=True):
     'Attempt a graphql query, if it fails, return response with information about failure'
-    if limitcheck:
+    if limitcheck == True:
         try:
             status, remaining, limit_exceeded, resetAt = check_limit(cost)
             if limit_exceeded:

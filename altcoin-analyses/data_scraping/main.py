@@ -7,7 +7,7 @@ import res.env_config as __config__
 __config__.set_master_config()
 
 import pandas as pd
-import data_scraping.datautils as du
+import custom_utils.datautils as du
 import data_scraping.scrapingutils as su
 import re
 import time

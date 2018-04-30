@@ -1,7 +1,9 @@
-import data_scraping.HTTP_helpers as HTTPh
-import coinmarketcap as cmc
-import log_service.logger_factory as lf
 from bs4 import BeautifulSoup
+
+import coinmarketcap as cmc
+import custom_utils.HTTP_helpers as HTTPh
+import log_service.logger_factory as lf
+
 logging = lf.get_loggly_logger(__name__)
 
 name_lookup_table = cmc.get_name_symbol_lookup_table(lookup_by_name=True)

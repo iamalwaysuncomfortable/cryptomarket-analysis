@@ -1,7 +1,7 @@
-import res.resource_helpers as res
-from data_scraping.datautils import get_time, convert_time_format, import_json_file
-from db_services.db import query_database, write_single_record, make_single_query, write_data
 import log_service.logger_factory as lf
+import res.resource_helpers as res
+from custom_utils.datautils import get_time, convert_time_format, import_json_file
+from db_services.db import query_database, write_single_record, make_single_query, write_data
 
 ##Setup Logger
 logging = lf.get_loggly_logger(__name__)
