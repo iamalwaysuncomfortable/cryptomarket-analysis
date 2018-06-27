@@ -6,10 +6,8 @@ logging = lf.get_loggly_logger(__name__)
 
 def set_master_config():
     _platform = platform.system()
-    if _platform == "linux" or _platform == "linux2":
-        print "It's linux"
-    elif _platform == "Darwin":
-        #OSX
+    _platform = _platform.lower()
+    if _platform == "linux" or _platform == "linux2" or _platform == "darwin":
         _path = os.environ["HOME"] + "/bb-env-config"
         sys.path.append(_path)
         import bb_envar_config

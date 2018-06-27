@@ -1,8 +1,6 @@
 from res.env_config import set_master_config
 set_master_config()
-
-import threading
-from time import sleep
+from custom_utils .decorators.memoize import memoize_with_timeout
 from log_service.logger_factory import get_loggly_logger, log_exceptions_from_entry_function, launch_logging_service
 import data_scraping.gitservice.collect_stats2 as cs
 import data_scraping.gitservice.process_data as prd
@@ -10,25 +8,27 @@ from data_scraping.gitservice.data_writing import push_github_data_to_postgres, 
     get_stored_queries, get_db_timestamp, update_db_timestamp, clean_stored_queries
 import custom_utils.datautils as du
 
-
 logging = get_loggly_logger(__name__)
 launch_logging_service()
 
-def get_and_store_records_from_API(start=None, existing_data=None):
-    data_storage = []
-    def write_stored_info():
-        while True:
-            if len(data_storage) > 1:
-                for item in data_storage:
-                    push_github_data_to_postgres(stars=item[0], forks=item[1], issues=item[2], pullrequests=item[3],
-                                                 repo_stats=item[4],commits=item[5])
+@memoize_with_timeout
+def get_org_data():
+    return cs.create_collection_objects(return_org_data=True)
 
-    logging.info("Getting repo and org stats from %s", start)
-    stats_collector, org_data = cs.create_collection_objects(existing_data, start, return_org_data=True)
-    org_stats = prd.stage_org_totals(org_data, du.get_time(now=True, utc_string=True))
+get_org_data.cache["timeout"] = 7200
+
+def get_and_store_records_from_API(start=None, existing_data=None):
+    org_data = existing_data
+    if existing_data == None:
+        logging.debug("No Existing Data Specified, collecting data default list of organizations")
+        org_data = get_org_data()
+        logging.info("%s github accounts collected, starting data collection on their repos", len(org_data))
+    stats_collector = cs.create_collection_objects(org_data, start, return_stats_generator=True)
     for result in stats_collector:
         stars, forks, issues, pullrequests, repo_stats, commits = prd.stage_data(result, db_format=True)
         push_github_data_to_postgres(stars, forks, issues, pullrequests, repo_stats, commits=commits)
+    org_stats = prd.stage_org_totals(org_data, du.get_time(now=True, utc_string=True))
+    push_github_data_to_postgres(org_stats=org_stats)
 
 def check_for_overlimit_tasks(since=None):
     if since:
@@ -41,6 +41,9 @@ def execute_overlimit_task(task_number):
     task_data = get_stored_queries(task_number)
     if task_data:
         get_and_store_records_from_API(existing_data=task_data)
+
+def retrieve_data_from_last_stored_updates():
+    get_and_store_records_from_API()
 
 def retrieve_data_from_github_from_date(start_date):
     task = check_for_overlimit_tasks(start_date)
@@ -76,3 +79,10 @@ def collect_org_stats_in_time_range(start, end, org):
     data = get_github_data_from_postgres(True, True, True, True, True, True, True, True, 0, start, end, org)
     stats = prd.count_github_org_stats(data, start, end)
     return stats
+
+start = None
+org_data = get_org_data()
+stats_collector = cs.create_collection_objects(org_data, start, return_stats_generator=True)
+for result in stats_collector:
+    stars, forks, issues, pullrequests, repo_stats, commits = prd.stage_data(result, db_format=True)
+    push_github_data_to_postgres(stars, forks, issues, pullrequests, repo_stats, commits=commits)

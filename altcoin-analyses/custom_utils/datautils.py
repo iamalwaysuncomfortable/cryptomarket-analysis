@@ -6,6 +6,21 @@ import datetime
 import time
 import logging
 from dateutil.relativedelta import relativedelta as rd
+from type_validation import validate_type as vt
+from type_validation import validate_list_element_types as vlet
+
+BOLD = "\033[1m"
+END = "'\033[0m"
+
+##Printing methods
+def boldprint(text):
+    print(BOLD + text + END)
+
+def select_elements_by_boolean(input_table, boolean_table):
+    if vt(input_table, (tuple, list)) and vt(boolean_table, (tuple, list)) \
+        and len(boolean_table) == len(input_table) and vlet(boolean_table, bool):
+        return [i for (i, v) in zip(input_table, boolean_table) if v]
+
 
 ##Data Cleaning Utility Methods
 def pre_process_types(df, num_columns = None, txt_columns = None):
@@ -95,14 +110,17 @@ def make_utc_aware(time):
     return aware_time
 
 def get_time(now=False, months=0, weeks=0, days=0, minutes=0 , seconds=0, utc_string=False,
-             give_unicode=False, custom_format=None, input_time=None, add=False):
+             give_unicode=False, custom_format=None, input_time=None, add=False, tz_aware=True):
     if input_time:
         try:
             nowtime = convert_time_format(input_time, str2dt=True, custom_format=custom_format)
         except TypeError:
             raise TypeError("Incorrect time, input must be in str, unicode, or datetime.time format")
     else:
-        nowtime = datetime.datetime.now(pytz.utc)
+        if tz_aware == True:
+            nowtime = datetime.datetime.now(pytz.utc)
+        else:
+            nowtime = datetime.datetime.now()
     if now == False:
         if add == True:
             nowtime = nowtime + rd(months=months) + rd(weeks=weeks) + rd(days=days) + rd(minutes=minutes) + rd(

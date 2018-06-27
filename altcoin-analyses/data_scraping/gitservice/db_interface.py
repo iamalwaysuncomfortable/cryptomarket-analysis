@@ -1,10 +1,48 @@
 import log_service.logger_factory as lf
 import res.resource_helpers as res
-from custom_utils.datautils import get_time, convert_time_format, import_json_file
+from custom_utils.datautils import get_time, convert_time_format, import_json_file, select_elements_by_boolean
 from db_services.db import query_database, write_single_record, make_single_query, write_data
+import pytz
 
 ##Setup Logger
 logging = lf.get_loggly_logger(__name__)
+
+def get_time_series_data(timescale = "day", stars=False, forks=False, pullrequests=False, issues=False, committers=False, commits = False, get_included_repos=True):
+    query_list = []
+    repo_query_elements, repo_query, i = [], "", 0
+    if commits == True:
+        query = 'SELECT date_trunc('"'"+timescale+"'"', committed_at) AS "'+timescale+'" , count(id) AS "Commits", owner, repo FROM devdata.commits GROUP BY 1, owner, repo ORDER BY  owner, repo, 1;'
+        query_list.append(("commits", query))
+        repo_query_elements.append("SELECT DISTINCT owner, repo FROM (" + query[:-1] + ") AS t" + str(i))
+        i += 1
+    if stars == True:
+        query = 'SELECT date_trunc('"'"+timescale+"'"', starred_at) AS "'+timescale+'" , count(id) AS "Stars", owner, repo FROM devdata.stars GROUP BY 1, owner, repo ORDER BY  owner, repo, 1;'
+        query_list.append(("stars", query))
+        repo_query_elements.append("SELECT DISTINCT owner, repo FROM (" + query[:-1] + ") AS t" + str(i))
+        i += 1
+    if committers == True:
+        query = 'SELECT date_trunc('"'"+timescale+"'"', committed_at) AS "'+timescale+'" , count(DISTINCT committed_by) AS "Commits", owner, repo FROM devdata.commits GROUP BY 1, owner, repo ORDER BY  owner, repo, 1;'
+        query_list.append(("committers", query))
+        repo_query_elements.append("SELECT DISTINCT owner, repo FROM (" + query[:-1] + ") AS t" + str(i))
+        i += 1
+    if get_included_repos == True and len(repo_query_elements) > 0:
+        print "repo query elements being recorded"
+        for e in range(0, len(repo_query_elements)):
+            if e < len(repo_query_elements) - 1:
+                repo_query += repo_query_elements[e] + " UNION "
+            elif e == len(repo_query_elements) - 1:
+                repo_query += repo_query_elements[e] + " ORDER BY owner, repo;"
+                print(repo_query)
+        query_list.append(("unique_repos", repo_query))
+
+    result = query_database(query_list, 0, True)
+    return result
+
+def get_latest_dates_of_database_update(convert_to_datetime=False):
+    query = "SELECT MAX(committed_at), owner, repo FROM devdata.commits GROUP BY owner, repo"
+    data =  make_single_query(query)
+    update_info = {(entry[1], entry[2]):entry[0] for entry in data}
+    return update_info
 
 def get_github_analytics_data(stars=False, forks=False, pullrequests=False, issues=False, stats=False, orgtotals = False, commits = False, all_records=True, num_records=0, start=None, end=None, org = None, repo = None):
     """ query parts from the parts table """
@@ -82,7 +120,6 @@ def edit_last_updated_timestamp(since):
     else:
         UPDATE_sql = "INSERT INTO devdata.lastupdated (_id, _at) VALUES(%s, %s) ON CONFLICT (_id) DO UPDATE SET (_at) = (EXCLUDED._at)"
         write_single_record(UPDATE_sql, (True, since_notz))
-
 
 def get_last_updated_timestamp():
     SELECT_sql = "SELECT _at FROM devdata.lastupdated"

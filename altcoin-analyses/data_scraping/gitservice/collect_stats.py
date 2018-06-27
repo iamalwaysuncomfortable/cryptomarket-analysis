@@ -75,7 +75,6 @@ def subdivide_queries(multi_repo_list, recs_per_call=20):
 def get_org_repos():
     'Get all github repositories under a coin github account'
     multiple_repo_list, single_repo_list = get_repo_lists(multiple_only=True), get_repo_lists(single_only=True)
-    multiple_repo_list =
     repo_data, multi_querylist, repo_count = {}, subdivide_queries(multiple_repo_list), 0
 
     #Get all repos from coin githubs from github api with more than 1 repo

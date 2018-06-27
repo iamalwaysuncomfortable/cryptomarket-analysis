@@ -1,6 +1,6 @@
 import json
 import time
-
+import custom_utils.HTTP_helpers as HTTPh
 from requests import HTTPError
 
 import custom_utils.datautils as du
@@ -14,6 +14,45 @@ logging = lf.get_loggly_logger(__name__)
 
 ###API Secret
 secret = get_envar("GITHUB_API_SECRET")
+
+def get_all_repos_in_account_http(account_type, account_name, retries=0):
+    repo_list = []
+    page = 1
+    while True:
+        result, status = repo_query_http(account_type, account_name, page, retries)
+        if status != 200:
+            raise HTTPError(status, "Non 200 status encountered, data was %s", result)
+        repo_list += result
+        if len(result) < 30:
+            break
+        page += 1
+    return repo_list
+
+def  repo_query_http(account_type, account_name, page, retries=0):
+    token = "bearer " + secret
+    headers = {"Authorization": token}
+    if account_type in ("user", "u", "users"):
+        account_type = "users"
+    elif account_type in ("org", "o", "organization", "orgs"):
+        account_type = "orgs"
+    else:
+        raise ValueError("Account type must be users or orgs")
+    call = "https://api.github.com/" + account_type + "/" + account_name + "/repos?page=" + str(page)
+    result, status = HTTPh.general_api_call(call, return_json=True, return_status=True, headers=headers)
+    if status != 200 and isinstance(retries, (int, float)) and retries > 0:
+        while retries > 0 and status != 200:
+            logging.warn("Status was %s retrying, %s retries left", status, retries)
+            logging.warn("Message was %s", result)
+            time.sleep(3)
+            result, status = HTTPh.general_api_call(call, return_json=True, return_status=True)
+            retries -= 1
+            if status == 200 or retries <= 0:
+                logging.warn("Number of retries allotted exceeded, returning error status & message")
+                break
+    logging.info("Result OK, returning")
+    return result, status
+
+
 
 ###Data Fetching Utility Methods
 def post_gql_query(gql, secret_):

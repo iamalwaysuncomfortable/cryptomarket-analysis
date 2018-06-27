@@ -13,3 +13,9 @@ def validate_type(test_var, ref_types):
         msg = "Error arg %s was of type %s required types are %s" % (str(test_var), type(test_var), ref_types)
         logging.warn(msg)
         raise TypeError(msg)
+    else: return True
+
+def validate_list_element_types(input_table, ref_types):
+    if validate_type(input_table, (list, tuple)) and all(isinstance(v, ref_types) for v in input_table):
+        return True
+    else: return False

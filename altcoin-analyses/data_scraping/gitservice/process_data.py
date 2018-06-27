@@ -1,10 +1,19 @@
 import pandas as pd
-
+import db_interface as dbdev
 import log_service.logger_factory as lf
 from custom_utils.datautils import convert_time_format
 
 ##Setup Logger
 logging = lf.get_loggly_logger(__name__)
+
+def collate_time_series_data(committers=False, commits=False,stars=False):
+    data = dbdev.get_time_series_data(stars=stars, commits=commits, committers=committers)
+    results = {}
+    
+    if committers == True:
+        for entry in data["committers"]:
+            result["committers"][entry]
+
 
 ###METHODS FOR FETCHING AND PROCESSESING DATA FROM THE DATABASE
 def count_github_org_stats(data, start=None, end=None):

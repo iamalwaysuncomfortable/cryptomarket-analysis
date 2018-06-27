@@ -1,12 +1,8 @@
-import pandas as pd
 import numpy as np
 import analysis.pre_processing.price_clusters_pp as pcp
-from sklearn import metrics
 from sklearn.cluster import AffinityPropagation, MeanShift, DBSCAN, estimate_bandwidth, AgglomerativeClustering
-from sklearn import metrics
 from custom_utils.type_validation import validate_type
 from matplotlib import colors as mcolors
-import mpl_toolkits.mplot3d.axes3d as p3
 import db_services.readwrite_utils as rw
 import matplotlib.pyplot as plt
 from itertools import cycle

@@ -72,11 +72,11 @@ def repo_query(owner, repo, num_commits=50, num_stars=50, num_forks=50, num_issu
 def simple_repo_query(owner, repo, full_query = True, create_alias=True):
     if create_alias == True:
         alias = generate_alias(repo)
-        query = alias + ': repository(owner:"' + owner + '", name:"' + repo + '") { name updatedAt owner { login } }'
+        query = alias + ': repository(owner:"' + owner + '", name:"' + repo + '") { name updatedAt owner { login } defaultBranchRef { name } }'
         if full_query == True: query = 'query { ' + query + ' }'
         return query, alias
     else:
-        query = 'query { repository(owner:"' + owner + '", name:"' + repo + '") { name updatedAt owner { login } } }'
+        query = 'query { repository(owner:"' + owner + '", name:"' + repo + '") { name updatedAt owner { login } defaultBranchRef { name } } }'
     return query
 
 def pagination_query(owner, repo, cursors, num=50, stars=False, forks=False, commits=False, open_issues=False,
