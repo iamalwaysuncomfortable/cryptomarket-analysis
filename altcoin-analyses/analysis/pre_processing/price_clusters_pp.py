@@ -3,9 +3,6 @@ import res.db_data.sql_statement_library as psqll
 import pandas as pd
 import numpy as np
 import log_service.logger_factory as lf
-import matplotlib.pyplot as plt
-from matplotlib import colors as mcolors
-from mpl_toolkits.mplot3d import Axes3D
 import data_scraping.coin_infosite_service.coinmarketcap as cmc
 logging = lf.get_loggly_logger(__name__)
 lf.launch_logging_service()
@@ -21,7 +18,7 @@ default_functions = {"max": "df[feature][(df_ix[i] - ts):df_ix[i]].max()",
                  "kurtosis": "df[feature][(df_ix[i] - ts):df_ix[i]].kurtosis"}
 default_function_list = default_functions.keys()
 
-def create_default_df(from_csv="megadaddy.csv"):
+def create_default_df(from_csv=None):
     if isinstance(from_csv, str):
         df = pd.read_csv(from_csv)
         intervals = [3, 7, 14, 30, 60, 90, 120, 360, 720, 1080]
@@ -260,7 +257,6 @@ def prepare_cluster_data(df, df_ix, feature_list, function_list, static_feature_
 
     point_container["names"] = []
     point_container["symbols"] = []
-
     def collect_features(feature_list, function_list, static_feature_list, static_feature_types,
                          point_container, symbol, ts, names):
         include = True
@@ -287,8 +283,8 @@ def prepare_cluster_data(df, df_ix, feature_list, function_list, static_feature_
             if function_list[j] in default_function_list:
                 result = eval(default_functions[function_list[j]])
                 if skip_nan == True and (np.isnan(result) or np.isinf(result) or result == None):
-                    logging.warn("result given for function %s gave result of %s skipping coin %s",
-                                 function_list[j], result, symbol)
+                    logging.warn("result given for function %s for feature %s gave result of %s skipping coin %s",
+                                 function_list[j], feature, result, symbol)
                     include = False
                     break
                 if isinstance(names, (tuple, list)) and isinstance(names[j], (str, unicode)):
@@ -315,10 +311,10 @@ def prepare_cluster_data(df, df_ix, feature_list, function_list, static_feature_
         if include == True:
             #####Write results if skip condition not reached#####
             for result in results:
-                print(results)
                 point_container[result[0]].append(result[1])
             point_container["symbols"].append(symbol)
             point_container["names"].append(df["coin_name"][df_ix[i]-1])
+        print results
 
     for i in range(1, len(df_ix)):
         if ts == None: ts = df_ix[i] - df_ix[i-1]
@@ -346,16 +342,15 @@ def prepare_cluster_data(df, df_ix, feature_list, function_list, static_feature_
                             if operation != "==": raise ValueError("If constraint is non float, only equalities are allowed")
                             if measure != constraint: include = False
                     except Exception as e:
-                        logging.warn("Exception caught in constraint measurement, text was %s", e)
+                        #logging.warn("Exception caught in constraint measurement, text was %s", e)
                         include = False
             elif constraints == None:
                 include = True
             else:
-                logging.warn("starting collection for symbol %s", symbol)
+                #logging.warn("starting collection for symbol %s", symbol)
                 include = False
 
             if include == True:
-                print("starting collection for symbol %s" %(symbol))
                 collect_features(feature_list, function_list, static_feature_list, static_feature_types,
                                  point_container, symbol, ts, names)
 

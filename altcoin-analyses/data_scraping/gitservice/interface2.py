@@ -8,7 +8,7 @@ from data_scraping.gitservice.data_writing import push_github_data_to_postgres, 
     get_stored_queries, get_db_timestamp, update_db_timestamp, clean_stored_queries
 import custom_utils.datautils as du
 
-logging = get_loggly_logger(__name__)
+logging = get_loggly_logger(__name__, level="INFO")
 launch_logging_service()
 
 @memoize_with_timeout

@@ -3,6 +3,11 @@ import logging.config
 import loggly.handlers
 import res.resource_helpers as res
 
+def get_state_reference():
+    return {"DEBUG":logging.DEBUG, "INFO":logging.INFO,
+            "WARNING":logging.WARNING, "ERROR":logging.ERROR,
+              "CRITICAL":logging.CRITICAL, "NOTSET":logging.NOTSET}
+
 def log_exceptions_from_entry_function(logger):
     def decorator(a_function):
         def wrapper(*args):
@@ -45,9 +50,12 @@ def generate_logger(level="DEBUG", format="default", stream_handler=True, file_h
             logger.addHandler(f_handler)
     return logger
 
-def get_loggly_logger(name):
+def get_loggly_logger(name, level="INFO"):
+    states = get_state_reference()
     logger_name = "logservice." + name
     logger = logging.getLogger(logger_name)
+    if level in states.keys():
+        logger.setLevel(level)
     return logger
 
 def launch_logging_service(console=True, loggly=False, file=False, filename="program_stream.log"):

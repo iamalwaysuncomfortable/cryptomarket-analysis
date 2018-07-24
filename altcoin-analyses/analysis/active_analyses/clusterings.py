@@ -9,10 +9,10 @@ lf.launch_logging_service()
 
 df, df_ix, intervals = pcp.create_measures()
 
-q = pcp.prepare_cluster_data(df, df_ix, ("ewma", "ewma", "14d_volatility_ratio", "return_variability"),
+q = pcp.prepare_cluster_data(df, df_ix, ("ewma", "ewma", "return_variability"),
                              ("max", "(df[feature][(df_ix[i] - ts):df_ix[i]].max() - df[feature][(df_ix[i] - ts)])/"
-                                     "df[feature][(df_ix[i] - ts)]", "mean", "mean"),
-                             names=(None, "ewma_max_gain",None, None),
+                                     "df[feature][(df_ix[i] - ts)]", "mean"),
+                             names=(None, "ewma_max_gain", None),
                              static_feature_list=("24h_volume_usd","total_supply"),static_feature_types=(float, float),
                              ts_=30, coin_data=pcp.coin_data,skip_nan=True)
 
@@ -32,8 +32,5 @@ for x in X:
 
 X = np.array(X)
 
-#cluster_data = cl.populate_coin_characteristics(X, alg.labels_,symbols,names, (("max_ewma_value",0),("max_ewma_gain",1)))
-cl.cluster_histograms(X, np.unique(X[:,4]),X[:,4],
-                      ("ewma_max", "ewma_max_gain", "24h_volume_usd","total_supply", 'return_variability_mean'),
-                      coin_chars=q,log10_scales=(True, False, True, True, False))
+cl.cluster_histograms(X, np.unique(X[:,4]),X[:,4],("ewma_max", "ewma_max_gain", "24h_volume_usd","total_supply", 'return_variability_mean'), coin_chars=q,log10_scales=(True, False, True, True, False))
 

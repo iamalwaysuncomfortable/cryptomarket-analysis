@@ -89,10 +89,15 @@ def write_json(filename, data, remove_bad_chars=True, ascii=False):
             json.dump(data, outfile)
     return
 
-def write_log(filename, data):
-    with open(filename + '.log', 'w') as outfile:
-        for item in data:
-            outfile.write("%s\n" % item)
+def write_log(filename, data, file_extension=None):
+    ext = ".log"
+    if isinstance(file_extension, (str, unicode)): ext = file_extension
+    with open(filename + ext, 'w') as outfile:
+        if isinstance(data, dict):
+            outfile.write(str(data))
+        else:
+            for item in data:
+                outfile.write("%s\n" % item)
     return
 
 

@@ -11,7 +11,7 @@ from custom_utils.errors.github_errors import GithubPaginationError, LimitExceed
     GithubAPIBadQueryError
 from data_writing import remaining_query_dump, error_processor
 from db_interface import get_latest_dates_of_database_update
-logging = lf.get_loggly_logger(__name__)
+logging = lf.get_loggly_logger(__name__, level="INFO")
 
 def create_collection_objects(existing_data=None, since=None, return_org_data=False, return_stats_generator=False):
     _since=since
@@ -89,12 +89,12 @@ def page_backwards(org_data, owner, repo, since, num):
     else:
         since = unicode(since)
     'If records exist prior to requested date cannot be accessed by a single query, page backwards using cursors'
-    logging.debug("pagination beginning for github account: %s - repo: %s", owner, repo)
+    logging.debug("pagination beginning for github account: %s - repo: %s from time %s", owner, repo, since)
 
     page_state = {"stars": True, "forks": True, "commits": True, "openissues": True, "closedissues": True,
                   "openrequests": True, "mergedrequests": True}
     cursors = {}
-    since_delta_7w = du.get_time(input_time=since, weeks=7)
+    since_delta_7w = du.get_time(input_time=since, weeks=2)
     since_delta_7w = unicode(du.convert_time_format(since_delta_7w, dt2str=True))
 
     #Get cursors from last element in list
@@ -103,9 +103,10 @@ def page_backwards(org_data, owner, repo, since, num):
         for key, t_value in _page_state.iteritems():
             if t_value and key == "commits":
                 _page_state[key] = False
-                if len(data["data"][alias]["commits"]["target"]["history"]["edges"]) >= num:
+                if data["data"][alias]["commits"] != None and len(data["data"][alias]["commits"]["target"]["history"]["edges"]) >= num:
                     first_item = data["data"][alias]["commits"]["target"]["history"]["edges"][-1]["node"][
                         "committedDate"]
+
                     if first_item > since:
                         cursors[key] = data["data"][alias]["commits"]["target"]["history"]["edges"][-1]["cursor"]
                         cursors["default_branch"] = data["data"][alias]["defaultBranchRef"]["name"]
@@ -166,16 +167,17 @@ def page_backwards(org_data, owner, repo, since, num):
     while not all(t_value == False for t_value in page_state.values()):
         if depth == 0:
             cursors = get_cursors(org_data, page_state)
+            if org_data["data"][alias]["commits"] == None:
+                org_data["data"][alias]["commits"] = {"target": {"history": {"edges": []}}}
         if bool(cursors):
             paged_data = send_query_and_combine_data(org_data, page_state, depth, cursors)
             cursors = get_cursors(paged_data, page_state)
             depth += 1
-
     return org_data
 
 def collect_repo_data(data, since):
     'Collect statistics on cryptocoin github accounts'
-    limit_exceeded, resetAt, unsearched_set, result_set, error_log, until = (False, "", {}, {}, [], du.get_time(now=True))
+    limit_exceeded, resetAt, unsearched_set, result_set, error_log, until = (False, "", {}, {}, {}, du.get_time(now=True))
     result_set["records_end_date"] = du.convert_time_format(until, dt2str=True)
     if since == None:
         repo_update_dates = get_latest_dates_of_database_update()
@@ -197,10 +199,7 @@ def collect_repo_data(data, since):
             if since == None:
                 if (repo['owner']['login'], repo['name']) in repo_update_dates:
                     last_repo_update = pytz.utc.localize(repo_update_dates[(repo['owner']['login'], repo['name'])])
-                    print(last_repo_update)
-                    print type(last_repo_update)
-                    print(updated_at)
-                    print type(updated_at)
+                    logging.debug("last database record of account %s - repo %s was at %s - last update on github was %s",  repo['owner']['login'], repo['name'], last_repo_update, updated_at)
                     if updated_at > last_repo_update:
                         repos_to_search.append(repo)
                 else:
@@ -257,7 +256,7 @@ def collect_repo_data(data, since):
                     org_errors[org_name].update({repo_name:{"data":result, "error_message":result[1]}})
                 idx += 1
         if bool(org_errors[org_name]):
-            error_log.append(org_errors)
+            error_log.update(org_errors)
         if bool(org_stats[org_name]):
             result_set.update(org_stats)
         if len(result_set) > 5 and limit_exceeded == False:

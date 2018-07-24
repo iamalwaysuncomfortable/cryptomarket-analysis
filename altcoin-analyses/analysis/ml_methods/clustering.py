@@ -156,6 +156,11 @@ def cluster_histograms(data, clusters, labels, target_chars, coin_chars=coin_dat
         c = 0
         for target in target_chars:
             ax = fig.add_subplot(rows, columns, i)
+            if i <= columns:
+                if log10_scales != None and log10_scales[c] == True:
+                    ax.set_title(target + "(Log Scale)")
+                else:
+                    ax.set_title(target)
             data = cluster_info[cluster][target]
             if log10_scales == None or log10_scales[c] == False:
                 print(cluster, target)
