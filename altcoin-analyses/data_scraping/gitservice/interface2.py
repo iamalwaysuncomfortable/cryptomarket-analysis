@@ -1,12 +1,13 @@
 from res.env_config import set_master_config
 set_master_config()
 from custom_utils .decorators.memoize import memoize_with_timeout
-from log_service.logger_factory import get_loggly_logger, log_exceptions_from_entry_function, launch_logging_service
 import data_scraping.gitservice.collect_stats2 as cs
 import data_scraping.gitservice.process_data as prd
 from data_scraping.gitservice.data_writing import push_github_data_to_postgres, get_github_data_from_postgres, \
-    get_stored_queries, get_db_timestamp, update_db_timestamp, clean_stored_queries
+    get_stored_queries, get_db_timestamp
 import custom_utils.datautils as du
+
+from log_service.logger_factory import get_loggly_logger, log_exceptions_from_entry_function, launch_logging_service
 
 logging = get_loggly_logger(__name__, level="INFO")
 launch_logging_service()
@@ -54,7 +55,8 @@ def retrieve_data_from_github_from_date(start_date):
 
 @log_exceptions_from_entry_function(logging)
 def retrieve_data_from_date(start_date):
-    retrieve_data_since_last_update_from_github(start_date)
+    start_date_delta = du.get_time(days=1, input_time=start_date, utc_string=True)
+    retrieve_data_from_github_from_date(start_date_delta)
 
 @log_exceptions_from_entry_function(logging)
 def retrieve_alltime_data_from_github():
@@ -62,10 +64,13 @@ def retrieve_alltime_data_from_github():
     retrieve_data_from_github_from_date(start_date)
 
 @log_exceptions_from_entry_function(logging)
-def retrieve_data_since_last_update_from_github():
-    start_date = get_db_timestamp()
-    start_date_delta = du.get_time(days=1, input_time=start_date, utc_string=True)
-    retrieve_data_from_github_from_date(start_date_delta)
+def retrieve_data_since_last_update():
+    start = None
+    org_data = get_org_data()
+    stats_collector = cs.create_collection_objects(org_data, start, return_stats_generator=True)
+    for result in stats_collector:
+        stars, forks, issues, pullrequests, repo_stats, commits = prd.stage_data(result, db_format=True)
+        push_github_data_to_postgres(stars, forks, issues, pullrequests, repo_stats, commits=commits)
 
 def collect_all_stats_in_time_range(start, end):
     data = get_github_data_from_postgres(True, True, True, True, True, True, True, True, 0, start, end)
@@ -79,10 +84,3 @@ def collect_org_stats_in_time_range(start, end, org):
     data = get_github_data_from_postgres(True, True, True, True, True, True, True, True, 0, start, end, org)
     stats = prd.count_github_org_stats(data, start, end)
     return stats
-
-start = None
-org_data = get_org_data()
-stats_collector = cs.create_collection_objects(org_data, start, return_stats_generator=True)
-for result in stats_collector:
-    stars, forks, issues, pullrequests, repo_stats, commits = prd.stage_data(result, db_format=True)
-    push_github_data_to_postgres(stars, forks, issues, pullrequests, repo_stats, commits=commits)

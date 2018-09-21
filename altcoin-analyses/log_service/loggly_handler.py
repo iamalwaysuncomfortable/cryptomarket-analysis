@@ -1,10 +1,16 @@
 import logging
 import logging.handlers
-
+import custom_utils.datautils as du
 import socket
 import traceback
 
 from requests_futures.sessions import FuturesSession
+
+default_keys = ('msecs', 'args', 'name', 'thread', 'created', 'process',
+                'threadName', 'module', 'filename', 'levelno', 'processName',
+                'pathname', 'lineno', 'asctime', 'exc_text', 'exc_info',
+                'message', 'funcName', 'relativeCreated', 'levelname', 'msg')
+
 
 session = FuturesSession()
 
@@ -56,7 +62,15 @@ class HTTPSHandler(logging.Handler):
             if not record.exc_text:
                 record.exc_text = self.add_traceback(record)
         try:
-            s = fmt._fmt % record.__dict__
+            record_info = record.__dict__
+            s = fmt._fmt % record_info
+            diff = du.set_difference(reference_set=default_keys, test_set=record_info)
+            if len(diff) > 0:
+                s = s[:-1]
+                for key in diff:
+                    s += ", " + '"'+key+'"' + ':' + '"'+str(record_info[key])+'"'
+                s += "}"
+
         except UnicodeDecodeError as e:
             # Issue 25664. The logger name may be Unicode. Try again ...
             try:

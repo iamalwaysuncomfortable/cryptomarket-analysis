@@ -20,11 +20,12 @@ fiat_pairs = {"USD":"US Dollar", "EUR":"EURO", "CNY":"Chinese RMB"}
 
 
 class StaticDataCollector(object):
-    def __init__(self, timeout=3600):
-        self.cc_coin_list, self.derivative_token_list, self.platform_counts = ah.cache_online_data(timeout, "SDC")
+    def __init__(self, timeout=3600, extra_symbols=None):
+        self.cc_coin_list, self.derivative_token_list, self.platform_counts = ah.cache_online_data(timeout, "SDC", extra_symbols=extra_symbols)
         self.unrecorded_coins = self.check_unrecorded_records()
         self.coin_data_queue = []
         self.coin_data_dict = {}
+        self.extra_symbols = extra_symbols
 
     def try_int_conversion(self, data):
         try:
@@ -35,31 +36,52 @@ class StaticDataCollector(object):
             return None
 
     def fetch_static_data_on_coin(self, symbol):
+        coin_symbol, coin_name, start_date, start_date_utc, algorithm, total_supply, amount_premined,\
+        fully_premined, coinmarketcap_id, proof_type, description, features, technology, website,\
+        twitter, derivative_token, parent_blockchain = None, None, None, None, \
+                                                       None, None, None, None, None, None, \
+                                                       None, None, None, None, None, None, None
+
+        logging.info("Symbol being tried is: %s", symbol)
         cc_id = self.cc_coin_list[symbol]['Id']
         r = cc.get_full_snapshot_by_id(cc_id)
+        coin_keys = r['Data']['General'].keys()
         self.coin_data_dict[symbol] = r['Data']['General']
-        coin_symbol = r['Data']['General']["Symbol"]
-        coin_name = r['Data']['General']["Name"]
-        start_date = r['Data']['General']["StartDate"]
+        if "Symbol" in coin_keys:
+            coin_symbol = r['Data']['General']["Symbol"]
+        if "Name" in coin_keys:
+            coin_name = r['Data']['General']["Name"]
+        if "StartDate" in coin_keys:
+            start_date = r['Data']['General']["StartDate"]
         try:
             start_date_utc = int(du.convert_epoch(start_date, str2e=True, custom_format="%d/%m/%Y"))
         except Exception as e:
             logging.warn("start date %s could not be converted to uts, error was %s", start_date, e)
             start_date_utc = None
-        algorithm = r['Data']['General']['Algorithm']
-        total_supply = self.try_int_conversion(r['Data']['General']["TotalCoinSupply"])
-        amount_premined = self.try_int_conversion(r['Data']['General']['PreviousTotalCoinsMined'])
+        if "Algorithm" in coin_keys:
+            algorithm = r['Data']['General']['Algorithm']
+        if "TotalCoinSupply" in coin_keys:
+            total_supply = self.try_int_conversion(r['Data']['General']["TotalCoinSupply"])
+        if "PreviousTotalCoinsMined" in coin_keys:
+            amount_premined = self.try_int_conversion(r['Data']['General']['PreviousTotalCoinsMined'])
         if not total_supply == None and not amount_premined == None and \
                         total_supply > 1000 and (total_supply - 10 <= amount_premined <= total_supply + 10):
             fully_premined = True
         else: fully_premined=False
-        coinmarketcap_id = r['Data']['General']['Id']
-        proof_type = r['Data']['General']["ProofType"]
-        description = r['Data']['General']["Description"]
-        features = r['Data']['General']["Features"]
-        technology = r['Data']['General']["Technology"]
-        website = r['Data']['General']["Website"]
-        twitter = r['Data']['General']["Twitter"]
+        if "Id" in coin_keys:
+            coinmarketcap_id = r['Data']['General']['Id']
+        if "ProofType" in coin_keys:
+            proof_type = r['Data']['General']["ProofType"]
+        if "Description" in coin_keys:
+            description = r['Data']['General']["Description"]
+        if "Features" in coin_keys:
+            features = r['Data']['General']["Features"]
+        if "Technology" in coin_keys:
+            technology = r['Data']['General']["Technology"]
+        if "Website" in coin_keys:
+            website = r['Data']['General']["Website"]
+        if "Twitter" in coin_keys:
+            twitter = r['Data']['General']["Twitter"]
         derivative_token=None
         parent_blockchain=None
         if coin_symbol in self.derivative_token_list:
@@ -78,6 +100,7 @@ class StaticDataCollector(object):
         #TODO: Add Validation Step
         existing_symbols = set([item[0] for item in rw.get_data_from_one_table(sql)])
         cc_symbols = set(self.cc_coin_list.keys())
+        logging.info("symbols are: %s", cc_symbols.difference(existing_symbols))
         return list(cc_symbols.difference(existing_symbols))
 
     def fetch_static_data_on_all_coins(self):

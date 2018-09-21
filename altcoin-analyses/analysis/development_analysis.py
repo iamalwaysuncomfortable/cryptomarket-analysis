@@ -1,4 +1,4 @@
-import data_scraping.gitservice.db_interface as devdb
+import analysis.pre_processing.dev_pre_processing as dpp
 
-
-devdb.get_github_analytics_data(stars=True, issues=True, forks=True,pullrequests=True,commits=True,stats=True, orgtotals=True)
+commit_data = dpp.pre_process_stats(commits=True)
+commits_6mo = dpp.prune_data(commit_data, stat="commits", period="6mo",exclude_zeros=True)

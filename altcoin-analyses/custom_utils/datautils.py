@@ -172,18 +172,22 @@ def convert_epoch(time, e2dt=False, e2str=False, str2e=False, dt2e=False, custom
         logging.error("Exactly one conversion option must be selected, no more, no less")
         raise (RuntimeError("Exactly one conversion option must be selected"))
     if not isinstance(time, (datetime.date, str, unicode, int, float)):
-        logging.error("Time must be in epoch, datetime, or string/unicode format")
-        raise (RuntimeError)
+        raise ValueError("Time must be in epoch, datetime, or string/unicode format, format passed was %s" % type(time))
     if e2dt and isinstance(time, (int, float)):
         return pytz.utc.localize(datetime.datetime.utcfromtimestamp(time))
     elif dt2e and isinstance(time, datetime.date):
         return (time - get_time(input_time='1970-01-01T00:00:00Z')).total_seconds()
     elif str2e and isinstance(time, (str, unicode)):
+        if custom_format == None:
+            if len(time) == 10:
+                time += 'T00:00:00Z'
         dt = convert_time_format(time, str2dt=True, custom_format=custom_format)
         return (dt - get_time(input_time='1970-01-01T00:00:00Z')).total_seconds()
     elif e2str and isinstance(time, (int, float)):
         dt = pytz.utc.localize(datetime.datetime.utcfromtimestamp(time))
         return convert_time_format(dt, dt2str=True, custom_format=custom_format)
+    else:
+        return time
 
 def dt_tostring(dt, give_unicode=False):
     if give_unicode:
@@ -204,9 +208,14 @@ def time_is_after(time_to_check, base_time=None):
 
 ###Epoch Methods
 def get_epoch(epoch=None, current=False, cast_int=False, cast_str=False, seconds=0, minutes=0,
-              hours = 0, days=0, years=0, add=False):
+              hours = 0, days=0, years=0, add=False, start_of_day=False, no_negative_times=False):
     _epoch = epoch
-    if isinstance(_epoch, (int, float)) and current==True:
+    if _epoch == None:
+        if start_of_day == True:
+            _epoch = convert_epoch(get_time(custom_format="%Y-%m-%dT00:00:01Z", utc_string=True), str2e=True)
+        else:
+            _epoch = time.time()
+    elif isinstance(_epoch, (int, float)) and current==True:
         logging.warn("If current param is set to true, epoch input will be erased in favor of current epoch")
     elif not isinstance(_epoch, (int, float)) and current==False:
         error_msg = "An epoch must be supplied or current param must be set to True"
@@ -217,10 +226,10 @@ def get_epoch(epoch=None, current=False, cast_int=False, cast_str=False, seconds
         extra_seconds = seconds + minutes * 60 + hours * 3600 + days * 86400 + years * 86400 * 365
         if add==True:
             _epoch += extra_seconds
-        if add==False:
+        else:
             _epoch -= extra_seconds
-        if _epoch < 0:
-            _epoch = 0
+        if no_negative_times == True and _epoch < 0:
+            return 0
 
     if current==True:
         _epoch = time.time()
@@ -234,7 +243,18 @@ def get_epoch(epoch=None, current=False, cast_int=False, cast_str=False, seconds
     if cast_int is True and cast_str is True:
         return str(int(_epoch))
 
-
+def validate_only_one_boolean_is_true(bool_input):
+    amount_of_trues = 0
+    if isinstance(bool_input, (tuple, list)):
+        for setting in bool_input:
+            if setting==True:
+                amount_of_trues += 1
+    if amount_of_trues == 0:
+        raise ValueError("No options selected")
+    elif amount_of_trues == 1:
+        pass
+    else:
+        raise ValueError("More than one option selected")
 
 def validate_epoch(date, default_date=None):
     def raise_epoch_error():
@@ -286,3 +306,7 @@ def striplines(file):
     lines = f.readlines()
     result = ' '.join([line.strip() for line in lines])
     return result
+
+def set_difference(reference_set, test_set):
+    set1, set2 = set(reference_set), set(test_set)
+    return set2.difference(set1)

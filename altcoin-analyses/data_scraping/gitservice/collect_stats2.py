@@ -55,7 +55,7 @@ def get_org_repos(single_repo_list, multiple_repo_list):
         else:
             skipped_repos.append((org, [result, query, status]))
             logging.error("Bad API Query result: %s - query: %s - HTTP status code: %s",
-                          result, query, status, exc_info=True)
+                          result, query, result[2], exc_info=True, extra={"status":result[2]})
             continue
 
     for index, acc in multiple_repo_list.iterrows():
@@ -159,9 +159,12 @@ def page_backwards(org_data, owner, repo, since, num):
             status, remaining, limit_exceeded, resetAt = paged_result
             raise LimitExceededDuringPaginationError(resetAt, paged_result, query, data, _cursors, _depth)
         elif status == "error":
-            logging.error('pagination error for org: %s repo: %s at depth % message: %s query was: %s',
-                          owner, alias, _depth, paged_result[1], query)
-            logging.exception("pagination error stacktrace: ")
+            if paged_result[0] in ("Type Error", "Other Exception", "Unknown Error"):
+                logging.error('pagination error for org: %s repo: %s at depth % message: %s query was: %s',
+                              owner, alias, _depth, paged_result[1], query, exc_info=True)
+            else:
+                logging.error('pagination error for org: %s repo: %s at depth % message: %s query was: %s',
+                              owner, alias, _depth, paged_result[1], query, exc_info=True, extra={"status":paged_result[2]})
             raise GithubPaginationError(paged_result[0], paged_result[1], paged_result, query, _cursors, _depth)
 
     while not all(t_value == False for t_value in page_state.values()):
@@ -251,8 +254,8 @@ def collect_repo_data(data, since):
                     limit_exceeded = True
                     break
                 elif status == "error":
-                    logging.warn("Received error in graphql call for github account: %s - repo: %s with data",
-                                 org_name, repo_name, result)
+                    logging.error("Received error in graphql call for github account: %s - repo: %s with data",
+                                 org_name, repo_name, result, extra={"status":result[2]})
                     org_errors[org_name].update({repo_name:{"data":result, "error_message":result[1]}})
                 idx += 1
         if bool(org_errors[org_name]):
@@ -277,3 +280,4 @@ def collect_repo_data(data, since):
     else:
         error_processor(collect_repo_data.__name__, error_log)
         yield result_set
+

@@ -6,8 +6,8 @@ import custom_utils.decorators.memoize as mem
 import db_services.readwrite_utils as rw
 from collections import Counter
 
-def return_derivative_token_list():
-    cmp_derivatives_list, cmp_platform_data = cmc.get_derivative_token_list()
+def return_derivative_token_list(extra_symbols=None):
+    cmp_derivatives_list, cmp_platform_data = cmc.get_derivative_token_list(extra_symbols=extra_symbols)
     tm_derivatives_list, tm_platform_data = tm.get_derivative_token_list()
     master_derivatives_list = tm_derivatives_list.copy()
     for key in cmp_derivatives_list.keys():
@@ -22,11 +22,11 @@ def return_derivative_token_list():
     return master_derivatives_list, platform_counts
 
 @mem.memoize_with_timeout
-def cache_online_data(timeout, desired_output):
+def cache_online_data(timeout, desired_output, extra_symbols=None):
     cache_online_data.cache['timeout'] = timeout
     if desired_output == "SDC":
         cc_coinlist = cc.get_coin_list()['Data']
-        derivative_list, platform_counts = return_derivative_token_list()
+        derivative_list, platform_counts = return_derivative_token_list(extra_symbols=extra_symbols)
         return cc_coinlist, derivative_list, platform_counts
     if desired_output == "COIN_LIST":
         coin_symbols = cc.get_coin_list()['Data']

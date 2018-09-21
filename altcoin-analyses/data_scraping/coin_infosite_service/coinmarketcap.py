@@ -5,25 +5,37 @@ import log_service.logger_factory as lf
 
 logging = lf.get_loggly_logger(__name__)
 
-def get_name_symbol_lookup_table(lookup_by_name=False, lookup_by_symbol=False):
+def get_name_symbol_lookup_table(lookup_by_name=False, lookup_by_symbol=False, extra_symbols=None):
     master_list = get_coin_list()
     result_list = []
 
     if lookup_by_name == True:
         result_list.append({entry['name']:entry['symbol'] for entry in master_list})
-    elif lookup_by_symbol == True:
+        if isinstance(extra_symbols, dict):
+            for symbol, name in extra_symbols.iteritems():
+                result_list[0][name] = symbol
+    if lookup_by_symbol == True:
         result_list.append({entry['symbol']:entry['name'] for entry in master_list})
+        if isinstance(extra_symbols, dict):
+            index = 0
+            if len(result_list) == 2:
+                index = 1
+            for symbol, name in extra_symbols.iteritems():
+                result_list[index][symbol] = name
     elif not any((lookup_by_name, lookup_by_symbol)):
         raise ValueError("at least one option must be specified, cannot have all options False")
+
+
+
     if len(result_list) > 1:
         return tuple(result_list)
     if len(result_list) == 1:
         return result_list[0]
 
-def get_derivative_token_list(platform_stats=False):
+def get_derivative_token_list(platform_stats=False, extra_symbols=None):
     page = HTTPh.general_api_call('https://coinmarketcap.com/tokens/views/all/')
     results = []
-    symbol_lookup_table = get_name_symbol_lookup_table(lookup_by_symbol=True)
+    symbol_lookup_table = get_name_symbol_lookup_table(lookup_by_symbol=True, extra_symbols=extra_symbols)
     coin_dict = {}
     platform_dict = {}
     if page.status_code == 200:

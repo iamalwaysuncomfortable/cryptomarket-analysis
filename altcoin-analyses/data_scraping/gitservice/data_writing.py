@@ -14,11 +14,14 @@ logging = lf.get_loggly_logger(__name__)
 ###Information-to-disk methods
 def error_processor(calling_func_name, errors):
     'Write errors to disk'
-    logging.error(errors)
-    if isinstance(errors, dict):
-        du.write_log(calling_func_name + "_errors_" + str(datetime.now()).replace(" ", "_"),errors, file_extension=".json")
+    if bool(errors):
+        logging.error("Errors from calling function %s, errors were %s", calling_func_name, errors)
+        if isinstance(errors, dict):
+            du.write_log(calling_func_name + "_errors_" + str(datetime.now()).replace(" ", "_"),errors, file_extension=".json")
+        else:
+            du.write_log(calling_func_name + "_errors_" + str(datetime.now()).replace(" ", "_"), errors)
     else:
-        du.write_log(calling_func_name + "_errors_" + str(datetime.now()).replace(" ", "_"), errors)
+        return
 
 def db_exists():
     return check_existence()

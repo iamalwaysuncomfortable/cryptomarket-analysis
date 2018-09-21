@@ -73,21 +73,21 @@ def pre_process_stats(commits=False, committers=False, stars=False, forks=False,
                 results["org_statistics"][coin]['org_stats'][stat + "_av_6mo"] = results["org_statistics"][coin]['org_stats'][stat + "_total_6mo"]/6
                 results["org_statistics"][coin]['org_stats'][stat + "_av_3mo"] = results["org_statistics"][coin]['org_stats'][stat + "_total_3mo"]/3
     for period in ["_av_6mo", "_av_3mo","_past_month"]:
-        stat = "commits"
-        x = []
-        y = []
-        for coin in results["org_statistics"].keys():
-            x.append(results["org_statistics"][coin]['org_stats']['commits' + period])
-        y = [n for n in x if n > 0]
-        if len(y) == 0: continue
-        shape, scale = expon.fit(y)
-        std_dev = expon.std(scale=scale)
-        for coin in results["org_statistics"].keys():
-            results["org_statistics"][coin]["org_stats"][stat + period + "_percentile"] = expon.cdf(results["org_statistics"][coin]['org_stats'][stat + period], scale=scale)
-            results["org_statistics"][coin]["org_stats"][stat + period + "_std_devs"] = results["org_statistics"][coin]['org_stats'][stat + period]/std_dev - 1
-        results["aggregate_statistics"]["number_of_github_orgs"] = len(results["org_statistics"])
-        results["aggregate_statistics"][stat + period] = {"shape":shape, "fit_type":"Exponential", "scale":scale, "std_dev":std_dev}
-        results["aggregate_statistics"][stat + period] = {"shape": shape, "fit_type": "Exponential", "scale": scale, "std_dev": std_dev}
+        for stat in data_list:
+            x = []
+            y = []
+            for coin in results["org_statistics"].keys():
+                x.append(results["org_statistics"][coin]['org_stats'][stat + period])
+            y = [n for n in x if n > 0]
+            if len(y) == 0: continue
+            shape, scale = expon.fit(y)
+            std_dev = expon.std(scale=scale)
+            for coin in results["org_statistics"].keys():
+                results["org_statistics"][coin]["org_stats"][stat + period + "_percentile"] = expon.cdf(results["org_statistics"][coin]['org_stats'][stat + period], scale=scale)
+                results["org_statistics"][coin]["org_stats"][stat + period + "_std_devs"] = results["org_statistics"][coin]['org_stats'][stat + period]/std_dev - 1
+            results["aggregate_statistics"]["number_of_github_orgs"] = len(results["org_statistics"])
+            results["aggregate_statistics"][stat + period] = {"shape":shape, "fit_type":"Exponential", "scale":scale, "std_dev":std_dev}
+            results["aggregate_statistics"][stat + period] = {"shape": shape, "fit_type": "Exponential", "scale": scale, "std_dev": std_dev}
     return results
 
 def prune_data(source_data, stat=None, period=None, exclude_zeros=False, custom_input = None):

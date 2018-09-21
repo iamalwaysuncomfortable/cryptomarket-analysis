@@ -7,6 +7,7 @@ import data_scraping.coin_infosite_service.coinmarketcap as cmc
 logging = lf.get_loggly_logger(__name__)
 lf.launch_logging_service()
 
+print("module started")
 coin_data = cmc.get_coin_list()
 coin_data = {coin["symbol"]:coin for coin in coin_data}
 default_functions = {"max": "df[feature][(df_ix[i] - ts):df_ix[i]].max()",
@@ -18,7 +19,9 @@ default_functions = {"max": "df[feature][(df_ix[i] - ts):df_ix[i]].max()",
                  "kurtosis": "df[feature][(df_ix[i] - ts):df_ix[i]].kurtosis"}
 default_function_list = default_functions.keys()
 
-def create_default_df(from_csv=None):
+def create_default_df(from_csv=None, custom_measures=None
+                      , custom_intervals=None, days_from_present=None
+                      , custom_time_range=None, date_format=None):
     if isinstance(from_csv, str):
         df = pd.read_csv(from_csv)
         intervals = [3, 7, 14, 30, 60, 90, 120, 360, 720, 1080]
@@ -30,21 +33,41 @@ def create_default_df(from_csv=None):
             count += df_ix[i]
         return df, ix, intervals
 
+    if isinstance(custom_measures, (tuple, list)):
+        measures = custom_measures
+    elif(custom_measures != None): raise ValueError("custom_measures "
+                                                    "must be specified in list or tuple format")
+    else:
+        measures = ["7d_med_btc", "7d_med_usd", "7d_med_eur", "7d_med_cny",
+                    "ewma", "ewma_std", "open", "close", "high", "low",
+                    "pct_openclose", "pct_openhi", "pct_openlo", "pct_hilo",
+                    "pct_hiclose", "pct_loclose", "pct_lifetime", "idx_high",
+                    "idx_low", "time_hi", "time_lo", "days_openhi", "days_openlow",
+                    "days_hiclose", "days_loclose", "ewma_open", "ewma_close", "ewma_high", "ewma_low",
+                    "ewma_pct_openclose", "ewma_pct_openhi", "ewma_pct_openlo", "ewma_pct_hilo",
+                    "ewma_pct_hiclose", "ewma_pct_loclose", "ewma_pct_lifetime", "ewma_idx_high",
+                    "ewma_idx_low", "ewma_time_hi", "ewma_time_lo", "days_openhi_ewma", "days_openlow_ewma",
+                    "days_hiclose_ewma", "days_loclose_ewma"]
+
+    if isinstance(custom_intervals, (tuple,list)):
+        intervals = custom_intervals
+    elif(custom_intervals != None): raise ValueError("custom_intervals "
+                                                     "must be specified in list or tuple format")
+    else:
+        intervals = [3, 7, 14, 30, 60, 90, 120, 360, 720, 1080]
+
     reads = psqll.crypto_price_data_statements(read=True)
-    query, col_query = reads["price_history_get_all"], reads["price_columns"]
+    col_query = reads["price_columns"]
+    if isinstance(days_from_present,(int, float)) and custom_time_range == None:
+        query = psqll.price_history_in_custom_date_range(days=days_from_present,
+                                                         custom_format=date_format)
+    elif isinstance(custom_time_range, (list,tuple)) and days_from_present == None:
+        query = psqll.price_history_in_custom_date_range(custom_range=custom_time_range,
+                                                         custom_format=date_format)
+    else:
+        query = reads["price_history_get_all"]
     columns = [x[0] for x in rw.get_data_from_one_table(col_query)]
-    measures = ["7d_med_btc", "7d_med_usd", "7d_med_eur", "7d_med_cny",
-                "ewma","ewma_std","open", "close", "high", "low",
-                "pct_openclose", "pct_openhi","pct_openlo","pct_hilo",
-                "pct_hiclose", "pct_loclose", "pct_lifetime", "idx_high",
-                "idx_low","time_hi","time_lo", "days_openhi", "days_openlow",
-                "days_hiclose", "days_loclose","ewma_open", "ewma_close", "ewma_high", "ewma_low",
-                "ewma_pct_openclose", "ewma_pct_openhi","ewma_pct_openlo","ewma_pct_hilo",
-                "ewma_pct_hiclose", "ewma_pct_loclose", "ewma_pct_lifetime", "ewma_idx_high",
-                "ewma_idx_low","ewma_time_hi","ewma_time_lo", "days_openhi_ewma", "days_openlow_ewma",
-                "days_hiclose_ewma", "days_loclose_ewma" ]
     interval_independent_measures = ["ewma", "ewma_std","7d_med_btc", "7d_med_usd", "7d_med_eur", "7d_med_cny"]
-    intervals = [3, 7, 14, 30, 60, 90, 120, 360, 720, 1080]
     df = rw.get_data_from_one_table(query)
     df = pd.DataFrame(data=df, columns=columns)
     df.sort_values(["coin_symbol", "uts"], inplace=True)
@@ -69,8 +92,13 @@ def create_default_df(from_csv=None):
         count += df_ix[i]
     return df, ix, intervals
 
-def create_measures(band_multiple=1):
-    df, df_ix, intervals = create_default_df()
+def create_measures(band_multiple=1, custom_measures=None, custom_intervals=None, days_from_present=None
+                      , custom_time_range=None, date_format=None):
+    df, df_ix, intervals = create_default_df(custom_measures=custom_measures,
+                                             custom_intervals=custom_intervals,
+                                             days_from_present=days_from_present,
+                                             custom_time_range=custom_time_range,
+                                             date_format=date_format)
     for i in range(1, len(df_ix)):
         logging.info("Index being measured is %s", df_ix[i])
         df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_std"] = df["price_usd"][df_ix[i - 1]:df_ix[i]].ewm(alpha=0.12, min_periods=3).std()
@@ -87,14 +115,14 @@ def create_measures(band_multiple=1):
         df.loc[df.index[df_ix[i - 1]:df_ix[i]], "price_btc"] = np.where((df['price_btc'][df_ix[i - 1]:df_ix[i]] > 0) & (np.abs(df['price_usd'][df_ix[i - 1]:df_ix[i]] / df['7d_med_usd'][df_ix[i - 1]:df_ix[i]]) > 5), df['7d_med_btc'][df_ix[i - 1]:df_ix[i]], df['price_btc'][df_ix[i - 1]:df_ix[i]])
         df.loc[df.index[df_ix[i - 1]:df_ix[i]], "price_cny"] = np.where((df['price_cny'][df_ix[i - 1]:df_ix[i]] > 0) & (np.abs(df['price_usd'][df_ix[i - 1]:df_ix[i]] / df['7d_med_usd'][df_ix[i - 1]:df_ix[i]]) > 5), df['7d_med_cny'][df_ix[i - 1]:df_ix[i]], df['price_cny'][df_ix[i - 1]:df_ix[i]])
         df.loc[df.index[df_ix[i - 1]:df_ix[i]], "price_eur"] = np.where((df['price_eur'][df_ix[i - 1]:df_ix[i]] > 0) & (np.abs(df['price_usd'][df_ix[i - 1]:df_ix[i]] / df['7d_med_usd'][df_ix[i - 1]:df_ix[i]]) > 5), df['7d_med_eur'][df_ix[i - 1]:df_ix[i]], df['price_eur'][df_ix[i - 1]:df_ix[i]])
-        fwd = df["price_usd"][df_ix[i - 1]:df_ix[i]].ewm(alpha=0.12, min_periods=1).mean()
-        bwd = df["price_usd"][df_ix[i - 1]:df_ix[i]][::-1].ewm(alpha=0.12,min_periods=1).mean()
+        fwd = df["price_usd"][df_ix[i - 1]:df_ix[i]].ewm(alpha=0.2, min_periods=1).mean()
+        bwd = df["price_usd"][df_ix[i - 1]:df_ix[i]][::-1].ewm(alpha=0.2,min_periods=1).mean()
         c = np.vstack((fwd, bwd[::-1]))
-        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma"] = np.mean( c, axis=0 )
-        fwd = df["price_usd"][df_ix[i - 1]:df_ix[i]].ewm(alpha=0.12, min_periods=1).std()
-        bwd = df["price_usd"][df_ix[i - 1]:df_ix[i]][::-1].ewm(alpha=0.12,min_periods=1).std()
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma"] = np.mean(c, axis=0 )
+        fwd = df["price_usd"][df_ix[i - 1]:df_ix[i]].ewm(alpha=0.2, min_periods=1).std()
+        bwd = df["price_usd"][df_ix[i - 1]:df_ix[i]][::-1].ewm(alpha=0.2,min_periods=1).std()
         c = np.vstack((fwd, bwd[::-1]))
-        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_std"] = np.mean( c, axis=0 )
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_std"] = np.mean(c, axis=0 )
         df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_top"] = df["ewma"][df_ix[i - 1]:df_ix[i]] + df["ewma_std"][df_ix[i - 1]:df_ix[i]]*band_multiple
         df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_low"] = df["ewma"][df_ix[i - 1]:df_ix[i]] - df["ewma_std"][df_ix[i - 1]:df_ix[i]]*band_multiple
     #   df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_mult"] = (df["ewma"][df_ix[i - 1]:df_ix[i]] + df["ewma_std"][df_ix[i - 1]:df_ix[i]])/df["ewma"][df_ix[i - 1]:df_ix[i]]
@@ -111,7 +139,7 @@ def create_measures(band_multiple=1):
             df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_mean_volatility"] = df["log_returns"][ df_ix[i - 1]:df_ix[i]].rolling(iv).mean()
             df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_volatility_ratio"] = (1+df[str(iv) + "d_daily_volatility"][df_ix[i - 1]:df_ix[i]])/(1 + np.abs(df[str(iv) + "d_mean_volatility"][ df_ix[i - 1]:df_ix[i]]))
 
-        return df, df_ix, intervals
+    return df, df_ix, intervals
 
 # for i in range(1, len(df_ix)):
 #     logging.info("Index being measured is %s", df_ix[i])
@@ -119,7 +147,7 @@ def create_measures(band_multiple=1):
 #     for iv in intervals:
 #         if iv > int_len:
 #             break
-#         df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "open"] = df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv)
+#         df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "open"] = df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(i
 #         df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "close"] = df["price_usd"][df_ix[i - 1]:df_ix[i]]
 #         df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "low"] = df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).min()
 #         df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "high"] = df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).max()
@@ -128,7 +156,7 @@ def create_measures(band_multiple=1):
 #             df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv)
 #         df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "pct_openhi"] = \
 #             (df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).max() -
-#              df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv)) / df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv)
+#              df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv)) / df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv)df
 #         df.loc[df.index[df_ix[i - 1]:df_ix[i]], str(iv) + "d_" + "pct_openlo"] = \
 #             (df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(iv).min() -
 #              df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv))/df["price_usd"][df_ix[i - 1]:df_ix[i]].shift(iv)

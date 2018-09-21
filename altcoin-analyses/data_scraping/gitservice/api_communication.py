@@ -2,7 +2,7 @@ import json
 import time
 import custom_utils.HTTP_helpers as HTTPh
 from requests import HTTPError
-
+import re
 import custom_utils.datautils as du
 import log_service.logger_factory as lf
 from custom_utils.errors.github_errors import GithubAPIBadQueryError, GithubAPIError
@@ -55,7 +55,7 @@ def  repo_query_http(account_type, account_name, page, retries=0):
 
 
 ###Data Fetching Utility Methods
-def post_gql_query(gql, secret_):
+def post_gql_query(gql, secret_, retry_bad_status_codes=True, retries=5):
     'Send call to Github API via HTTP, throw error if failure'
     if gql.endswith('.graphql'):
         query = du.striplines(gql)
@@ -73,17 +73,43 @@ def post_gql_query(gql, secret_):
         except:
             raise (response, "json encoding failed")
         if 'errors' in result:
-            logging.warn("error detected in gql results")
-            logging.warn("error query: %s error data is: %s", query, result["errors"])
+            logging.error("error in gql results query: %s error data is: %s",
+                          query, result["errors"], extra={"status":response.status_code})
             raise GithubAPIBadQueryError(result, query, response.status_code)
         else:
             return response.status_code, result
     elif (400 <= response.status_code < 600):
-        logging.warn("bad response code of %s found on query %s response was %s", response.status_code, query, response)
+        if retry_bad_status_codes == True and retries > 0:
+            for retry in range(1, retries+1):
+                logging.warn("Status code of %s given, retrying. %s retries left"
+                             , response.status_code, retries - retry
+                             , extra={"status":response.status_code, "query": re.sub('"', '', query)})
+                response = su.post_http('https://api.github.com/graphql', json.dumps({"query": query}), headers=headers,
+                                        max_retries=10)
+                if response.status_code == 200:
+                    try:
+                        result = response.json()
+                    except:
+                        raise (response, "json encoding failed")
+                    if 'errors' in result:
+                        logging.error("error in gql results query: %s error data is: %s",
+                                      query, result["errors"], extra={"status": response.status_code})
+                        raise GithubAPIBadQueryError(result, query, response.status_code)
+                    else:
+                        return response.status_code, result
+        if retry_bad_status_codes == True:
+            logging.error("Query failure after %s retries ", retries
+                          , extra={"status":response.status_code, "query":query,
+                                   "query_failure":True})
+        else:
+            logging.error("Query failure"
+                          , extra={"status": response.status_code, "query": query,
+                                   "query_failure": True})
         raise response.raise_for_status()
     else:
         msg = "github API returned a non 200 SUCCESS code of %s" % response.status_code
-        logging.warn("OK response code of %s found on query %s response was %s", response.status_code, query, response)
+        logging.warn("OK response code of %s found on query %s response was %s",
+                     response.status_code, query, response, extra={"status":response.status_code})
         raise GithubAPIError(response, response.status_code, msg)
 
 def try_gql_query(query, limitcheck=True, cost=100, wait=True):

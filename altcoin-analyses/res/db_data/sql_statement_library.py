@@ -1,5 +1,5 @@
-
-##Crypto Compare
+import custom_utils.datautils as du
+import custom_utils.type_validation as tv
 
 def result_returner(options):
     if len(options) > 1:
@@ -13,6 +13,47 @@ def price_history_one_token(coin_symbol, all_fields=False, price_pairs = "price_
     else:
         query = "SELECT uts, "+price_pairs+" from pricedata.token_prices WHERE coin_symbol = '" +coin_symbol +"'"
     return query
+
+def price_at_date(date, coin_symbol):
+    if isinstance(coin_symbol, (list, tuple)) and tv.validate_list_element_types(coin_symbol, (str, unicode)):
+        coin_statement = "("
+        for symbol in coin_symbol:
+            coin_statement += " '" + symbol + "' ,"
+        coin_statement = coin_statement[:-1]
+        coin_statement += ")"
+        query = "SELECT price_usd, coin_symbol, utcdate from pricedata.token_prices WHERE coin_symbol in " + coin_statement + " AND utcdate = '" + date + "'"
+    else:
+        query = "SELECT price_usd, coin_symbol, utcdate from pricedata.token_prices WHERE coin_symbol = '" + coin_symbol + "' AND utcdate = '" + date + "'"
+    return query
+
+def price_history_in_custom_date_range(symbols = None, days=None,
+                                        custom_range = None, custom_format=None):
+    query = "SELECT * FROM pricedata.token_prices where "
+    if isinstance(symbols, (tuple, list)) and tv.validate_list_element_types(symbols,(str, unicode)):
+        query += "coin_symbol in ("
+        for symbol in symbols:
+            query += " '" + symbol + "',"
+        query = query[:-1] + " )"
+        query += " AND "
+    dates = []
+    if isinstance(days, (int, float)):
+        dates.append(du.get_epoch(days = int(days)))
+        dates.append(du.get_epoch(current=True))
+    elif isinstance(custom_range, (list,tuple)) and len(custom_range) == 2:
+        date_format = custom_format
+        if custom_format == None and tv.validate_list_element_types(custom_range, (str, unicode)) and (len(custom_range[0]) == 10 and len(custom_range[1]) == 10):
+            date_format = "%Y-%m-%d"
+        for date in custom_range:
+            if isinstance(date, (str, unicode)):
+                dates.append(du.convert_epoch(date, str2e=True, custom_format=date_format))
+            elif isinstance(date,(int, float)):
+                dates.append(date)
+    else:
+        raise ValueError("Either number of days from present OR custom range"
+                         "must be specified. If custom range specified, must be "
+                         "a tuple or list with 2 dates in either"
+                         "%Y-%m-%dT%H:%M:%SZ , %Y-%m-%d or epoch format")
+    return query + " uts between "+str(min(dates))+"' and "+ str(max(dates))
 
 def pair_history_one_pair(from_symbol, to_symbol):
     return "SELECT * from pricedata.pair_data WHERE from_symbol = '"+from_symbol+"' AND to_symbol = '"+to_symbol+"'"
