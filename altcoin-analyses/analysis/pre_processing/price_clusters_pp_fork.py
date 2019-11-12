@@ -118,7 +118,9 @@ def create_default_df(from_csv=None, custom_measures=None
     else:
         intervals = [3, 7, 14, 30, 60, 90, 120, 360, 720, 1080]
 
+    print "made it this frar"
     reads = psqll.crypto_price_data_statements(read=True)
+    print reads
     col_query = reads["price_columns"]
     if isinstance(days_from_present,(int, float)) and custom_time_range == None:
         query = psqll.price_history_in_custom_date_range(days=days_from_present,
@@ -156,12 +158,14 @@ def create_default_df(from_csv=None, custom_measures=None
 
 def create_measures(band_multiple=1, custom_measures=None, custom_intervals=None, days_from_present=None
                       , custom_time_range=None, date_format=None, measure_percent_increases=False, pct_increases=None,
-                    pct_study_periods=None, add_coin_attributes=False):
+                    pct_study_periods=None, add_coin_attributes=False, alpha=0.2):
     df, df_ix, intervals = create_default_df(custom_measures=custom_measures,
                                              custom_intervals=custom_intervals,
                                              days_from_present=days_from_present,
                                              custom_time_range=custom_time_range,
                                              date_format=date_format)
+    if 0 in pct_increases:
+        raise ValueError("Cannot measure a 0% increase")
     if add_coin_attributes == True:
         attributes = ('derivative_token', 'market_cap_usd','start_date'
                       , '24h_volume_usd', 'start_date_utc', 'max_supply',
@@ -171,7 +175,7 @@ def create_measures(band_multiple=1, custom_measures=None, custom_intervals=None
 
     for i in range(1, len(df_ix)):
         logging.info("Index being measured is %s", df_ix[i])
-        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_std"] = df["price_usd"][df_ix[i - 1]:df_ix[i]].ewm(alpha=0.12, min_periods=3).std()
+        df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_std"] = df["price_usd"][df_ix[i - 1]:df_ix[i]].ewm(alpha=alpha, min_periods=3).std()
         df.loc[df.index[df_ix[i - 1]:df_ix[i]], "7d_med_btc"] = df["price_btc"][df_ix[i - 1]:df_ix[i]].rolling(7).median()
         df.loc[df.index[df_ix[i - 1]:df_ix[i]], "7d_med_usd"] = df["price_usd"][df_ix[i - 1]:df_ix[i]].rolling(7).median()
         df.loc[df.index[df_ix[i - 1]:df_ix[i]], "7d_med_eur"] = df["price_eur"][df_ix[i - 1]:df_ix[i]].rolling(7).median()
@@ -192,12 +196,12 @@ def create_measures(band_multiple=1, custom_measures=None, custom_intervals=None
         df.loc[df.index[df_ix[i - 1]:df_ix[i]], "price_btc"] = np.where((df['price_btc'][df_ix[i - 1]:df_ix[i]] > 0) & (np.abs(df['price_usd'][df_ix[i - 1]:df_ix[i]] / df['7d_med_usd'][df_ix[i - 1]:df_ix[i]]) > 5), df['7d_med_btc'][df_ix[i - 1]:df_ix[i]], df['price_btc'][df_ix[i - 1]:df_ix[i]])
         df.loc[df.index[df_ix[i - 1]:df_ix[i]], "price_cny"] = np.where((df['price_cny'][df_ix[i - 1]:df_ix[i]] > 0) & (np.abs(df['price_usd'][df_ix[i - 1]:df_ix[i]] / df['7d_med_usd'][df_ix[i - 1]:df_ix[i]]) > 5), df['7d_med_cny'][df_ix[i - 1]:df_ix[i]], df['price_cny'][df_ix[i - 1]:df_ix[i]])
         df.loc[df.index[df_ix[i - 1]:df_ix[i]], "price_eur"] = np.where((df['price_eur'][df_ix[i - 1]:df_ix[i]] > 0) & (np.abs(df['price_usd'][df_ix[i - 1]:df_ix[i]] / df['7d_med_usd'][df_ix[i - 1]:df_ix[i]]) > 5), df['7d_med_eur'][df_ix[i - 1]:df_ix[i]], df['price_eur'][df_ix[i - 1]:df_ix[i]])
-        fwd = df["price_usd"][df_ix[i - 1]:df_ix[i]].ewm(alpha=0.2, min_periods=1).mean()
-        bwd = df["price_usd"][df_ix[i - 1]:df_ix[i]][::-1].ewm(alpha=0.2,min_periods=1).mean()
+        fwd = df["price_usd"][df_ix[i - 1]:df_ix[i]].ewm(alpha=alpha, min_periods=1).mean()
+        bwd = df["price_usd"][df_ix[i - 1]:df_ix[i]][::-1].ewm(alpha=alpha,min_periods=1).mean()
         c = np.vstack((fwd, bwd[::-1]))
         df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma"] = np.mean(c, axis=0 )
-        fwd = df["price_usd"][df_ix[i - 1]:df_ix[i]].ewm(alpha=0.2, min_periods=1).std()
-        bwd = df["price_usd"][df_ix[i - 1]:df_ix[i]][::-1].ewm(alpha=0.2,min_periods=1).std()
+        fwd = df["price_usd"][df_ix[i - 1]:df_ix[i]].ewm(alpha=alpha, min_periods=1).std()
+        bwd = df["price_usd"][df_ix[i - 1]:df_ix[i]][::-1].ewm(alpha=alpha,min_periods=1).std()
         c = np.vstack((fwd, bwd[::-1]))
         df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_std"] = np.mean(c, axis=0 )
         df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_top"] = df["ewma"][df_ix[i - 1]:df_ix[i]] + df["ewma_std"][df_ix[i - 1]:df_ix[i]]*band_multiple
@@ -240,8 +244,7 @@ def create_measures(band_multiple=1, custom_measures=None, custom_intervals=None
             if isinstance(modifier, (int, float)):
                 p += modifier
                 end += modifier
-            examination_periods.append((str(p) + "_day_period", du.get_epoch(days=p, start_of_day=True),
-                                        du.get_epoch(days=end, start_of_day=True)))
+            examination_periods.append((str(p) + "_day_period", du.get_epoch(days=p, start_of_day=True),du.get_epoch(days=end, start_of_day=True)))
 
         for i in range(1, len(df_ix)):
             if len(df[df_ix[i - 1]:df_ix[i]][df.price_usd > 0.0]) <= 0:
@@ -261,9 +264,7 @@ def create_measures(band_multiple=1, custom_measures=None, custom_intervals=None
                 if len(df[df_ix[i - 1]:df_ix[i]][(df.uts < p[2]) & (df.uts > p[1]) & (df.price_usd > 0)]) <= 0: continue
                 period_opening_price = \
                 df[df_ix[i - 1]:df_ix[i]][(df.uts < p[2]) & (df.uts > p[1]) & (df.price_usd > 0)]["price_usd"].iloc[0]
-                column_name = str(int((p[2] - p[1]) / 86400)) + "_day_pct_change_from_" + du.convert_epoch(p[1],
-                                                                                                           e2str=True,
-                                                                                                           custom_format="%Y%m%d")
+                column_name = str(int((p[2] - p[1]) / 86400)) + "_day_pct_change_from_" + du.convert_epoch(p[1],e2str=True, custom_format="%Y%m%d")
                 df.loc[df.index[df_ix[i - 1]:df_ix[i]], "price_" + column_name] = \
                     df[df_ix[i - 1]:df_ix[i]][(df.uts < p[2]) & (df.uts > p[1])]["price_usd"] / period_opening_price - 1
                 df.loc[df.index[df_ix[i - 1]:df_ix[i]], "ewma_" + column_name] = \
@@ -271,11 +272,19 @@ def create_measures(band_multiple=1, custom_measures=None, custom_intervals=None
                 for pct in increase_percentages:
                     first_pct = \
                     df[df_ix[i - 1]:df_ix[i]][(df['uts'] > p[1]) & (df['uts'] < p[2])]['ewma_' + column_name].iloc[0]
-                    a = df[df_ix[i - 1]:df_ix[i]][(df['uts'] > p[1]) & (df['uts'] < p[2])].groupby(
-                        (df['ewma_' + column_name] < pct).cumsum()).cumcount(ascending=False)
-                    b = (a.shift(1) < a) & (a.shift(-1) < a)
-                    if first_pct > pct:
-                        b.iloc[0] = True
+                    if pct > 0:
+                        a = df[df_ix[i - 1]:df_ix[i]][(df['uts'] > p[1]) & (df['uts'] < p[2])].groupby(
+                            (df['ewma_' + column_name] < pct).cumsum()).cumcount(ascending=False)
+                        b = (a.shift(1) < a) & (a.shift(-1) < a)
+                        if (first_pct > pct):
+                            b.iloc[0] = True
+                    else:
+
+                        a = df[df_ix[i - 1]:df_ix[i]][(df['uts'] > p[1]) & (df['uts'] < p[2])].groupby(
+                            (df['ewma_' + column_name] > pct).cumsum()).cumcount(ascending=False)
+                        b = (a.shift(1) < a) & (a.shift(-1) < a)
+                        if first_pct < pct:
+                            b.iloc[0] = True
                     pct_column_name =str(int((p[2] - p[1]) / 86400)) + "_open_" \
                                      + str(pct * 100) + "_pct_increase"
                     df.loc[df.index[df_ix[i - 1]:df_ix[i]], pct_column_name] = 0

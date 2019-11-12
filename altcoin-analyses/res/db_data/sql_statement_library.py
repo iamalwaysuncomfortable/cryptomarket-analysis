@@ -53,7 +53,9 @@ def price_history_in_custom_date_range(symbols = None, days=None,
                          "must be specified. If custom range specified, must be "
                          "a tuple or list with 2 dates in either"
                          "%Y-%m-%dT%H:%M:%SZ , %Y-%m-%d or epoch format")
-    return query + " uts between "+str(min(dates))+"' and "+ str(max(dates))
+    query = query + " uts between "+str(min(dates))+" and "+ str(max(dates))
+    print query
+    return query
 
 def pair_history_one_pair(from_symbol, to_symbol):
     return "SELECT * from pricedata.pair_data WHERE from_symbol = '"+from_symbol+"' AND to_symbol = '"+to_symbol+"'"

@@ -104,6 +104,7 @@ def make_single_query(query, num_records=0, all=True):
         cur = conn.cursor()
         change_encoding("Decimal->Float", conn)
         # execute a statement
+        print (query)
         cur.execute(query)
         if all == True:
             logging.info("query %s being executed, all records requested", query)

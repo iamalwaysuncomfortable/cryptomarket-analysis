@@ -1,8 +1,9 @@
 from bs4 import BeautifulSoup
-
+import redis
 import custom_utils.HTTP_helpers as HTTPh
 import log_service.logger_factory as lf
-
+import custom_utils.datautils as du
+import json
 logging = lf.get_loggly_logger(__name__)
 
 def get_name_symbol_lookup_table(lookup_by_name=False, lookup_by_symbol=False, extra_symbols=None):
@@ -63,7 +64,32 @@ def get_derivative_token_list(platform_stats=False, extra_symbols=None):
     else:
         return coin_dict, platform_dict
 
-def get_coin_list():
-    call = "https://api.coinmarketcap.com/v1/ticker/?limit=0"
-    coin_list = HTTPh.general_api_call(call, return_json=True)
+def get_coin_list(cache_time=3600):
+    try:
+        r = redis.Redis(
+            host='127.0.0.1',
+            port=6379)
+        if r.exists("cmp_list") and r.exists("date"):
+            date = r.get("date")
+            if ((du.get_epoch(current=True) - float(date)) > cache_time):
+                print ("Fetching Re-Up")
+                call = "https://api.coinmarketcap.com/v1/ticker/?limit=0"
+                coin_list = HTTPh.general_api_call(call, return_json=True)
+                r.set("cmp_list",json.dumps(coin_list))
+                r.set("date", du.get_epoch(current=True))
+            else:
+                print "get from cache"
+                coin_list = json.loads(r.get('cmp_list'))
+        else:
+            call = "https://api.coinmarketcap.com/v1/ticker/?limit=0"
+            coin_list = HTTPh.general_api_call(call, return_json=True)
+            r.set("cmp_list", coin_list)
+            r.set("date", du.get_epoch(current=True))
+    except Exception as e:
+        print "redis error"
+        error = "Retrieving data from redis cache failed with error message %s, contacting coinmarketcap for information" % e
+        print(error)
+        #logging.exception(error, e)
+        call = "https://api.coinmarketcap.com/v1/ticker/?limit=0"
+        coin_list = HTTPh.general_api_call(call, return_json=True)
     return coin_list
